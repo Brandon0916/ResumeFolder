@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - GameNim",
+            "request": "launch",
+            "mainClass": "GameNim"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - GameTicTacToe",
+            "request": "launch",
+            "mainClass": "GameTicTacToe"
+        }
+    ]
+}

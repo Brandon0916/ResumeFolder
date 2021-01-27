@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemPan",
+            "request": "launch",
+            "mainClass": "ProblemPan",
+            "projectName": "search_post_44c511a6"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemWaterJugs",
+            "request": "launch",
+            "mainClass": "ProblemWaterJugs",
+            "projectName": "search_post_44c511a6"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemMcan",
+            "request": "launch",
+            "mainClass": "ProblemMcan",
+            "projectName": "search_post_44c511a6"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemCannibals",
+            "request": "launch",
+            "mainClass": "ProblemCannibals",
+            "projectName": "search_post_44c511a6"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemWolfGoatCabbage",
+            "request": "launch",
+            "mainClass": "ProblemWolfGoatCabbage"
+        },
+        {
+            "type": "java",
+            "name": "CodeLens (Launch) - ProblemNPuzzle",
+            "request": "launch",
+            "mainClass": "ProblemNPuzzle"
+        }
+    ]
+}
