@@ -1,0 +1,1825 @@
+---
+title: "QA/QC of Air Temperature Data -- WADF Burn Station, Step1"
+author: "Zimeng Ming"
+date: "19/02/2020"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,tidy.opts=list(keep.blank.line=FALSE,width.cutoff=20),tidy=TRUE, 
+                      warning=FALSE, message=FALSE)
+```
+
+# 1. Background
+
+This report is part of the QA/QC procedure documentation for air temperature data measured at the West Arm Demonstration Forest (WADF) climate station "Burn". The WADF stations are located in the west Kootenays in British Columbia, Canada, and are operated by the BC Ministry of Forests, Lands, Natural Resource Operations and Rural Development.
+
+This is Step 1 of the Burn Station QA/QC procedure for daily air temperature. This part mainly focusses on an initial review of the dataset and flagging of potentially bad data according to four sets of criteria (three of which were based on Meek and Hatfield (1994)). A new column named "IsBad" is created for each temperature variable with a default value of False, and dates are flagged as True when a data point fails one or more of the criteria. The temperature dataset and flags are then exported to a csv file which is manually reviewed by a subject matter expert. The manually reviewed files are then input for Step2. Step 1 includes graphs of air temperature from multiple sensors versus time, plotted with the daily average minimum and maximum temperatures.
+
+This script will be used in two ways: first to evaluate the historical record (1992-2018), and then once per year as new data is collected. The variable name "df" is used for the historical datasets. The variable "input_year" indicates the year of the new data (>2018), and requires only those parts of the code that use "input_year". Functions should not be edited unless there is a change in column names or if new variables are needed for the plots. The best way to add new variables in the functions is to make a new function below. Otherwise, run only the code that uses input_year, not the whole dataset.
+
+
+## Record of air temperature sensors used at the WADF Burn Station (serial numbers in brackets, if avaialble)
+
+Date of Install |Program |Tair1 |Tair2 |Tair3 |Tair4 |Max/Min
+------- | --------------- | ------- | ------ | ------ |------ |----
+1992-10-06 |WADF_BURN_WR01CC|207(C1502) | | | |Tair1
+1994-05-25 |? |HMP35C | | | |Tair1
+1995-06-02 |BURN95 |HMP35C  | | | |Tair1
+1995-09-06 |BURN95F |HMP35C  | | | |Tair1
+1999-06-24 |BURN99 |HMP35C  | | | |Tair1
+2000-10-27 |BURN00V1 |HMP? |T107(C1879) |HMP? | |Tair1
+2001-04-24 |BURN0V1B |HMP? |  |HMP? | |Tair1
+2005-10-28 |BSNOW05 | | | |T107 |Tair1
+2014-07-10 |Burn_documentDLD_PJ |HMP? ||HMP? | |Tair1
+2015-04-16 |BURN15|HMP35| |HMP35| |Tair2
+2018-06-15 |BURN_15_JUNE2018 |HMP60^1^ |107 in SE4 |None^2^ | |Tair2
+2018-07-25 |Burn_15_APR2018| |107 in SE4 |None^2^ | |Tair2
+2018-10-30 |Burn_15_OCT2018 |107 in SE2 |107 in SE4 |Error^3^ | |Tair2
+2019-06-21 |BURN1906 |HMP60 |107 | | |Tair1
+_1. HMP60 Tair1 measured but not output._
+_2. Doesn't exist but being output (AirTC)._
+_3. HMP35 instruction used for HMP60 Sensor (AirTC)._
+
+# 2. Scripts for Step 1 
+
+## a. Load the libraries
+
+All of the following libraries are needed. If they have not previously been installed on the user's computer, please use the code package.install("library names") to install.
+```{r}
+#package information:  will add later in the final version 
+#install.packages()
+
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(reshape2)
+library(plyr)
+library(naniar)
+library(formatR)
+
+```
+
+
+The package information:
+
+Package Name | Verison | Use of the package 
+-------------|---------|--------------------
+Readxl | 1.3.1 | Read the excel files in
+ggplot2 | 3.2.1 | Plot the graph
+dplyr | 0.8.3 | Data operation
+scales | 1.1.0 | Data operation
+reshape2 | 3.6.2 | Re-formate the data in order for plot
+plyr | 1.8.5 | Data operation
+naniar | 0.5.0 | Using for the missing value
+formatR | 1.3.1 | Formating the R Script and Rmarkdown
+
+
+## b. Path need to use for the dataset
+
+This section are a manually requried section, the user need to set the path by themself for their own computer. All the path need in the script are included in the section. 
+
+### The current working directory need to set:
+
+Normally, the path you stored this rmd file will automatically be your working directory, however, for some reason it might change. 
+
+```{r results="hide"}
+#To check the current working directory:
+getwd()
+
+#If need change the working directory: 
+#setwd("C:/Work/2020Work/QAQC(Steps)/Burn") # if you need change the working directory, change it here, otherwise it will be the default location which is the same folder with the script dose. 
+```
+
+### Switch buttom 
+
+If only need the current year output, change to Ture, if want all years output, swich to False
+```{r}
+#Single year -->T ; ALL the years -->F
+Switch_buttom<-T
+
+#if the year are using Tair2 as the major sensor, change to T, otherwise remain F
+Tair2_As_Major<-T
+```
+
+
+
+
+### The path for reading the file
+
+This section will set the read in path for the files
+```{r results="hide"}
+#set the path to the folder that contains the daily data files for old years
+#Notice: For the Future use, The Read_in_path.old should be the path that after the manually reviwed.
+read_in_path.old<-"G:/BrandonMing 2020/Burn_output/Burn_Step1_Manually Reviewed"
+
+#for the most recent year patC:/Work
+read_in_path.future<-"C:/Work/2020Work/QAQC(Steps)/Burn/BURN/Daily_data_1992+/Burn_Daily_2019.xlsx"
+```
+
+
+### For the output path
+
+In this section will set the path that will use for the output the path file.
+
+```{r}
+#set the folder path where files will be saved, NOTICE: The path should already exsit. 
+outPath.Graph<-"Graph"
+
+```
+
+### For the caslgar sation file:
+
+This section is using for the Rate of Change test, if the user are using different station data, need set the path in here. 
+
+```{r}
+#set the path to the datafile folder 
+path_Castlegar<-"C:/Work/2020Work/QAQC(Steps)/Castlegar"
+```
+
+### Other place need to change by manually:
+
+Note: In the Limited test plot function, There is a path for vaiable JulianDay need manually change by the user. It could not change the path in here. 
+
+#### Set the Obivously Bad data value
+
+```{r}
+Bad_Data_Value<-c(-6999,-53.46,-53.45)
+```
+
+ 
+## c. Load the dataset 
+The variable name "df" is used for the full historical datasets (1992-2018). The variable "input_year" indicates the year of the new data (>2018).
+
+Table of the Variable names:
+
+```{r ,results="hide"}
+#Use the following lines of code to load the historical dataset
+
+if(Switch_buttom==F){
+  #create a list of all filenames, including paths
+  file.list <- list.files(path=read_in_path.old, pattern='Burn_', full.names=T)
+  #load the data into a single dataframe
+  df <- sapply(file.list, read_excel, simplify=FALSE)
+
+}else{
+  #create a list of all filenames, including paths
+  file.list <- list.files(path=read_in_path.old, pattern='_Step1_', full.names=T)
+  #load the data into a single dataframe
+  df <- sapply(file.list, read.csv, simplify=FALSE)
+}
+
+# OR
+
+
+#use the following code to load a single year by editing the filename
+input_years<-read_excel(read_in_path.future)
+
+```
+
+
+
+## d. Remove obviously bad data 
+
+Datalogger or programming errors and damaged sensors can produce obviously bad data. In this section, these values will be automatically replaced with NA. The values are set manually. For the Burn site historical dataset, these values were identified as -6999, -53.46 and -53.45.
+
+First, the functions are defined. The script is repeated for each air temperature sensor (Tair1, Tair2, etc.) and for the daily max and min values.
+
+
+```{r}
+# For Tair1 (the main sensor, also called Tair)
+defined_bad_values<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair_Avg_C" %in% colnames(Burn.input_Year)){
+        #this function replaces bad data with NA; the values for bad data 
+        #are set manually and the list can be added to.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair_Avg_C=Bad_Data_Value))
+    }else{
+      return(Burn.input_Year)
+    }
+}
+```
+
+
+```{r}
+# For Tair2
+defined_bad_values2<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, the number of bad data 
+        #should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair2_Avg_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Tair3
+defined_bad_values3<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, the number of 
+        #bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair3_Avg_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Tair4
+defined_bad_values4<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, 
+        #the number of bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair4_Avg_C=Bad_Data_Value))
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Max Tair1
+defined_bad_values5<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair_Max_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, 
+        #the number of bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair_Max_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+# For Min Tair1
+defined_bad_values6<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair_Min_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, 
+        #the number of bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair_Min_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Max Tair2
+defined_bad_values7<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, 
+        #the number of bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair2_Max_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Min Tair2
+defined_bad_values8<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+   if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, 
+        #the number of bad data should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair2_Min_C=Bad_Data_Value))
+        
+   }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+  
+```
+
+### Second, the functions are applied to either the historical dataset or an individual year.
+
+```{r}
+if(Switch_buttom==F){
+  #for the historical dataset
+  df<-lapply(df,defined_bad_values)
+  df<-lapply(df,defined_bad_values2)
+  df<-lapply(df,defined_bad_values3)
+  df<-lapply(df,defined_bad_values4)
+  df<-lapply(df,defined_bad_values5)
+  df<-lapply(df,defined_bad_values6)
+  df<-lapply(df,defined_bad_values7)
+  df<-lapply(df,defined_bad_values8)
+
+}else{
+  #for a new dataset (single year)
+  input_years<-defined_bad_values(input_years)
+  input_years<-defined_bad_values2(input_years)
+  input_years<-defined_bad_values3(input_years)
+  input_years<-defined_bad_values4(input_years)
+  input_years<-defined_bad_values5(input_years)
+  input_years<-defined_bad_values6(input_years)
+  input_years<-defined_bad_values7(input_years)
+  input_years<-defined_bad_values8(input_years)
+}
+
+
+
+```
+
+
+
+## e. Limits test
+
+The limits rule simply compares an air temperature value on a certain day with a likely range of values. For air temperature, the limits were set at 2 standard deviations above and below the mean calculated for each Julian Day. Data values that fall outide of 2 standard deviations will be flagged.
+
+For evaluation of the historical dataset, the limits were set using the mean and standard deviations for the first 10 years of record. After the historical data is fully assessed, the limits will be updated and used to assess the next year of new data. The limits will continue to be updated as each new year of data is assessed.
+
+### Determine the limits using the first 10 years of data
+
+This is used to analyse the historical dataset. First, calculate the mean and standard deviation for the primary air temperature sensor (Tair or Tair1), the daily maximum daily value, and the minimum daily value.
+
+```{r}
+#combine the first 10 years of data 
+df_first_ten_years<-rbind.fill(df[1:10])
+
+#group by julian day 
+df_first_ten_years.byJdays<-df_first_ten_years %>% group_by(df_first_ten_years$JulianDay)
+
+#for Tair
+#calculate the mean and standard deviation for each julian day
+df_first_ten_years.mean<-tapply(df_first_ten_years.byJdays$Tair_Avg_C,df_first_ten_years.byJdays$JulianDay,mean,na.rm=T)
+df_first_ten_years.sd<-tapply(df_first_ten_years.byJdays$Tair_Avg_C,df_first_ten_years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_first_ten_years.mean2<-df_first_ten_years.mean
+df_first_ten_years.mean2[366]<-(df_first_ten_years.mean[365]+df_first_ten_years.mean[366]+df_first_ten_years.mean[1])/3
+#for standard deviation, use the value for day 365
+df_first_ten_years.sd[366]<-df_first_ten_years.sd[365]
+
+#for max Tair
+#calculate the mean and standard deviation for each julian day
+df_first_ten_years.max<-tapply(df_first_ten_years.byJdays$Tair_Max_C,df_first_ten_years.byJdays$JulianDay,mean,na.rm=T)
+df_first_ten_years.sd_MAX<-tapply(df_first_ten_years.byJdays$Tair_Max_C,df_first_ten_years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_first_ten_years.max2<-df_first_ten_years.max
+df_first_ten_years.max2[366]<-(df_first_ten_years.max[365]+df_first_ten_years.max[366]+df_first_ten_years.max[1])/3
+#for standard deviation, use the value for day 365
+df_first_ten_years.sd_MAX[366]<-df_first_ten_years.sd_MAX[365]
+
+#for min Tair
+#calculate the mean and standard deviation for each julian day
+df_first_ten_years.min<-tapply(df_first_ten_years.byJdays$Tair_Min_C,df_first_ten_years.byJdays$JulianDay,mean,na.rm=T)
+df_first_ten_years.sd_Min<-tapply(df_first_ten_years.byJdays$Tair_Min_C,df_first_ten_years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_first_ten_years.min2<-df_first_ten_years.min
+df_first_ten_years.min2[366]<-(df_first_ten_years.min[365]+df_first_ten_years.min[366]+df_first_ten_years.min[1])/3
+#for standard deviation, use the value for day 365
+df_first_ten_years.sd_Min[366]<-df_first_ten_years.sd_Min[365]
+```
+
+### Second, for each day calcuate the max of the daily maximum values, and the min of the daily minimum values.
+
+```{r}
+df_first_ten_years.max.max<-tapply(df_first_ten_years.byJdays$Tair_Max_C,df_first_ten_years.byJdays$JulianDay,max,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_first_ten_years.max.max2<-df_first_ten_years.max.max
+df_first_ten_years.max.max2[366]<-(df_first_ten_years.max.max[365]+df_first_ten_years.max.max[366]+df_first_ten_years.max.max[1])/3
+df_first_ten_years.min.min<-tapply(df_first_ten_years.byJdays$Tair_Min_C,df_first_ten_years.byJdays$JulianDay,min,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_first_ten_years.min.min2<-df_first_ten_years.min.min
+df_first_ten_years.min.min2[366]<-(df_first_ten_years.min.min[365]+df_first_ten_years.min.min[366]+df_first_ten_years.min.min[1])/3
+df_first_ten_years.min.min<-df_first_ten_years.min.min[-366]
+df_first_ten_years.max.max<-df_first_ten_years.max.max[-366]
+```
+
+
+### Next, define functions to compare the daily data against the limits.
+
+
+```{r}
+#for Tair1
+Limited_Test1<-function(Burn.input_Year){
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair1<-F
+  
+  if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+  for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair_Avg_C[i]>(df_first_ten_years.mean[i]+2*df_first_ten_years.sd[i]) || Burn.input_Year$Tair_Avg_C[i]<(df_first_ten_years.mean[i]-2*df_first_ten_years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair1[i]<-T
+    }}}}
+  return(Burn.input_Year)
+}
+
+#for Tair2
+Limited_Test2<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair2<-F
+  
+  if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair2_Avg_C[i]>(df_first_ten_years.mean[i]+2*df_first_ten_years.sd[i]) || Burn.input_Year$Tair2_Avg_C[i]<(df_first_ten_years.mean[i]-2*df_first_ten_years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair2[i]<-T
+      } }   } }
+  return(Burn.input_Year)
+}
+
+#for Tair3
+Limited_Test3<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair3<-F
+  
+  if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair3_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair3_Avg_C[i]>(df_first_ten_years.mean[i]+2*df_first_ten_years.sd[i]) || Burn.input_Year$Tair3_Avg_C[i]<(df_first_ten_years.mean[i]-2*df_first_ten_years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair3[i]<-T
+    }  }   }}
+  return(Burn.input_Year)
+}
+
+#for Tair4
+Limited_Test4<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair4<-F
+  
+  if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair4_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair4_Avg_C[i]>(df_first_ten_years.mean[i]+2*df_first_ten_years.sd[i]) || Burn.input_Year$Tair4_Avg_C[i]<(df_first_ten_years.mean[i]-2*df_first_ten_years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair4[i]<-T
+    } }    }}
+  
+  return(Burn.input_Year)
+}
+
+#for Min Tair
+Limited_Test_Min<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Min<-F
+  
+  #if/then/else statement 
+  #if min for Tair2 is available, then run test
+  if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Min_C[i])!=T){
+      if(Burn.input_Year$Tair2_Min_C[i]>(df_first_ten_years.min[i]+2*df_first_ten_years.sd_Min[i]) || Burn.input_Year$Tair2_Min_C[i]<(df_first_ten_years.min[i]-2*df_first_ten_years.sd_Min[i]) ) {
+      Burn.input_Year$IsBad_LIM_Min[i]<-T
+    }  }   }
+    #otherwise run it for Tair1 min
+  }else {
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Min_C[i])!=T){
+      if(Burn.input_Year$Tair_Min_C[i]>(df_first_ten_years.min[i]+2*df_first_ten_years.sd_Min[i]) || Burn.input_Year$Tair_Min_C[i]<(df_first_ten_years.min[i]-2*df_first_ten_years.sd_Min[i]) ) {
+      Burn.input_Year$IsBad_LIM_Min[i]<-T
+    } }}}
+  
+  return(Burn.input_Year)
+}
+
+#for Max Tair
+Limited_Test_Max<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False.  
+  Burn.input_Year$IsBad_LIM_Max<-F
+  
+  #if/then/else statement 
+  #if max for Tair2 is available, then run test
+  if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Max_C[i])!=T){
+      if(Burn.input_Year$Tair2_Max_C[i]>(df_first_ten_years.max[i]+2*df_first_ten_years.sd_MAX[i]) || Burn.input_Year$Tair2_Max_C[i]<(df_first_ten_years.max[i]-2*df_first_ten_years.sd_MAX[i]) ) {
+      Burn.input_Year$IsBad_LIM_Max[i]<-T
+    } }   }
+    #otherwise run it for Tair1 max
+  }else{
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Max_C[i])!=T){
+      if(Burn.input_Year$Tair_Max_C[i]>(df_first_ten_years.max[i]+2*df_first_ten_years.sd_MAX[i]) || Burn.input_Year$Tair_Max_C[i]<(df_first_ten_years.max[i]-2*df_first_ten_years.sd_MAX[i]) ) {
+      Burn.input_Year$IsBad_LIM_Max[i]<-T
+    } } }}
+  return(Burn.input_Year)
+}
+```
+
+### Lastly, apply the functions for the limits test.
+
+
+```{r}
+
+#for the historical dataset
+df<-lapply(df, Limited_Test1)
+df<-lapply(df, Limited_Test2)
+df<-lapply(df, Limited_Test3)
+df<-lapply(df, Limited_Test4)
+df<-lapply(df, Limited_Test_Max)
+df<-lapply(df, Limited_Test_Min)
+
+```
+
+
+
+### As for the future use
+
+The following script are using for the future years. The lastest years should be the newest years file which stored in the folder. The function will automatically defined the limite range from 1992 to the year before the lastest year. 
+
+```{r}
+#combine the first 10 years of data 
+df_all_preivous.years<-rbind.fill(df[1:length(df)-1])
+
+#group by julian day 
+df_all_preivous.years.byJdays<-df_all_preivous.years %>% group_by(df_all_preivous.years$JulianDay)
+
+#for Tair
+#calculate the mean and standard deviation for each julian day
+df_all_preivous.years.mean<-tapply(df_all_preivous.years.byJdays$Tair_Avg_C,df_all_preivous.years.byJdays$JulianDay,mean,na.rm=T)
+df_all_preivous.years.sd<-tapply(df_all_preivous.years.byJdays$Tair_Avg_C,df_all_preivous.years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_all_preivous.years.mean2<-df_all_preivous.years.mean
+df_all_preivous.years.mean2[366]<-(df_all_preivous.years.mean[365]+df_all_preivous.years.mean[366]+df_all_preivous.years.mean[1])/3
+#for standard deviation, use the value for day 365
+df_all_preivous.years.sd[366]<-df_all_preivous.years.sd[365]
+
+#for max Tair
+#calculate the mean and standard deviation for each julian day
+df_all_preivous.years.max<-tapply(df_all_preivous.years.byJdays$Tair_Max_C,df_all_preivous.years.byJdays$JulianDay,mean,na.rm=T)
+df_all_preivous.years.sd_MAX<-tapply(df_all_preivous.years.byJdays$Tair_Max_C,df_all_preivous.years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_all_preivous.years.max2<-df_all_preivous.years.max
+df_all_preivous.years.max2[366]<-(df_all_preivous.years.max[365]+df_all_preivous.years.max[366]+df_all_preivous.years.max[1])/3
+#for standard deviation, use the value for day 365
+df_all_preivous.years.sd_MAX[366]<-df_all_preivous.years.sd_MAX[365]
+
+#for min Tair
+#calculate the mean and standard deviation for each julian day
+df_all_preivous.years.min<-tapply(df_all_preivous.years.byJdays$Tair_Min_C,df_all_preivous.years.byJdays$JulianDay,mean,na.rm=T)
+df_all_preivous.years.sd_Min<-tapply(df_all_preivous.years.byJdays$Tair_Min_C,df_all_preivous.years.byJdays$JulianDay,sd,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_all_preivous.years.min2<-df_all_preivous.years.min
+df_all_preivous.years.min2[366]<-(df_all_preivous.years.min[365]+df_all_preivous.years.min[366]+df_all_preivous.years.min[1])/3
+#for standard deviation, use the value for day 365
+df_all_preivous.years.sd_Min[366]<-df_all_preivous.years.sd_Min[365]
+```
+
+#### Second, for each day calcuate the max of the daily maximum values, and the min of the daily minimum values.
+
+```{r}
+df_all_preivous.years.max.max<-tapply(df_all_preivous.years.byJdays$Tair_Max_C,df_all_preivous.years.byJdays$JulianDay,max,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_all_preivous.years.max.max2<-df_all_preivous.years.max.max
+df_all_preivous.years.max.max2[366]<-(df_all_preivous.years.max.max[365]+df_all_preivous.years.max.max[366]+df_all_preivous.years.max.max[1])/3
+df_all_preivous.years.min.min<-tapply(df_all_preivous.years.byJdays$Tair_Min_C,df_all_preivous.years.byJdays$JulianDay,min,na.rm=T)
+#for day 366, use the average of days 365, 366 and 1
+df_all_preivous.years.min.min2<-df_all_preivous.years.min.min
+df_all_preivous.years.min.min2[366]<-(df_all_preivous.years.min.min[365]+df_all_preivous.years.min.min[366]+df_all_preivous.years.min.min[1])/3
+df_all_preivous.years.min.min<-df_all_preivous.years.min.min[-366]
+df_all_preivous.years.max.max<-df_all_preivous.years.max.max[-366]
+```
+
+
+#### Next, define functions to compare the daily data against the limits.
+
+
+```{r}
+#for Tair1
+Limited_Test1.future<-function(Burn.input_Year){
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair1<-F
+  
+
+  for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair_Avg_C[i]>(df_all_preivous.years.mean[i]+2*df_all_preivous.years.sd[i]) || Burn.input_Year$Tair_Avg_C[i]<(df_all_preivous.years.mean[i]-2*df_all_preivous.years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair1[i]<-T
+    }}}
+  return(Burn.input_Year)
+}
+
+#for Tair2
+Limited_Test2.future<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair2<-F
+  
+  if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair2_Avg_C[i]>(df_all_preivous.years.mean[i]+2*df_all_preivous.years.sd[i]) || Burn.input_Year$Tair2_Avg_C[i]<(df_all_preivous.years.mean[i]-2*df_all_preivous.years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair2[i]<-T
+      } }   } }
+  return(Burn.input_Year)
+}
+
+#for Tair3
+Limited_Test3.future<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair3<-F
+  
+  if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair3_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair3_Avg_C[i]>(df_all_preivous.years.mean[i]+2*df_all_preivous.years.sd[i]) || Burn.input_Year$Tair3_Avg_C[i]<(df_all_preivous.years.mean[i]-2*df_all_preivous.years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair3[i]<-T
+    }  }   }}
+  return(Burn.input_Year)
+}
+
+#for Tair4
+Limited_Test4.future<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Tair4<-F
+  
+  if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair4_Avg_C[i])!=T){
+      if(Burn.input_Year$Tair4_Avg_C[i]>(df_all_preivous.years.mean[i]+2*df_all_preivous.years.sd[i]) || Burn.input_Year$Tair4_Avg_C[i]<(df_all_preivous.years.mean[i]-2*df_all_preivous.years.sd[i]) ) {
+      Burn.input_Year$IsBad_LIM_Tair4[i]<-T
+    } }    }}
+  
+  return(Burn.input_Year)
+}
+
+#for Min Tair
+Limited_Test_Min.future<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False. 
+  Burn.input_Year$IsBad_LIM_Min<-F
+  
+  #if/then/else statement 
+  #if min for Tair2 is available, then run test
+  if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Min_C[i])!=T){
+      if(Burn.input_Year$Tair2_Min_C[i]>(df_all_preivous.years.min[i]+2*df_all_preivous.years.sd_Min[i]) || Burn.input_Year$Tair2_Min_C[i]<(df_all_preivous.years.min[i]-2*df_all_preivous.years.sd_Min[i]) ) {
+      Burn.input_Year$IsBad_LIM_Min[i]<-T
+    }  }   }
+    #otherwise run it for Tair1 min
+  }else {
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Min_C[i])!=T){
+      if(Burn.input_Year$Tair_Min_C[i]>(df_all_preivous.years.min[i]+2*df_all_preivous.years.sd_Min[i]) || Burn.input_Year$Tair_Min_C[i]<(df_all_preivous.years.min[i]-2*df_all_preivous.years.sd_Min[i]) ) {
+      Burn.input_Year$IsBad_LIM_Min[i]<-T
+    } }}}
+  
+  return(Burn.input_Year)
+}
+
+#for Max Tair
+Limited_Test_Max.future<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #create new column IsBad with default value False.  
+  Burn.input_Year$IsBad_LIM_Max<-F
+  
+  #if/then/else statement 
+  #if max for Tair2 is available, then run test
+  if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Max_C[i])!=T){
+      if(Burn.input_Year$Tair2_Max_C[i]>(df_all_preivous.years.max[i]+2*df_all_preivous.years.sd_MAX[i]) || Burn.input_Year$Tair2_Max_C[i]<(df_all_preivous.years.max[i]-2*df_all_preivous.years.sd_MAX[i]) ) {
+      Burn.input_Year$IsBad_LIM_Max[i]<-T
+    } }   }
+    #otherwise run it for Tair1 max
+  }else{
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Max_C[i])!=T){
+      if(Burn.input_Year$Tair_Max_C[i]>(df_all_preivous.years.max[i]+2*df_all_preivous.years.sd_MAX[i]) || Burn.input_Year$Tair_Max_C[i]<(df_all_preivous.years.max[i]-2*df_all_preivous.years.sd_MAX[i]) ) {
+      Burn.input_Year$IsBad_LIM_Max[i]<-T
+    } } }}
+  return(Burn.input_Year)
+}
+```
+
+#### apply the single years function
+```{r}
+
+#for single years
+input_years<-Limited_Test1.future(input_years)
+input_years<-Limited_Test2.future(input_years)
+input_years<-Limited_Test3.future(input_years)
+input_years<-Limited_Test4.future(input_years)
+input_years<-Limited_Test_Max.future(input_years)
+input_years<-Limited_Test_Min.future(input_years)
+```
+
+
+## f. Rate of Change Test (ROC)
+
+Sensor damage or errors may cause spikes in the dataset. In order to detect spikes, the difference between two consecutive values is calculated. If the difference is larger than expected, the data is flagged.
+
+For the WADF stations, the max expected difference was calculated from records at the Environment Canada XYZ station for the period YYYY to ZZZZ (station ID ######). The data was downloaded manually from the online archive.
+
+First, calculate the max rate of change from the Castlegar station data.
+
+```{r}
+#load the dataset and combine to one dataframe
+file.list_Castlegar <- list.files(path=path_Castlegar, pattern='en', full.names=T)
+#load the dataset
+df_Castlegar <- sapply(file.list_Castlegar, read.csv, simplify=FALSE)
+#combined into single dataframe
+df_Castlegar_Combined<-rbind.fill(df_Castlegar)
+
+#calculate the max rate of change for the mean, max and min daily values
+max_rate_mean<-0
+max_rate_max<-0
+max_rate_min<-0
+
+for (i in 1:length(df_Castlegar_Combined$Date.Time)) {
+  #max change of mean daily value
+  if(is.na(df_Castlegar_Combined$Mean.Temp..Â.C.[i]) !=T && is.na(df_Castlegar_Combined$Mean.Temp..Â.C.[i+1]) !=T  ){
+    max_rate_mean[i]<-abs(abs(df_Castlegar_Combined$Mean.Temp..Â.C.[i+1])-abs(df_Castlegar_Combined$Mean.Temp..Â.C.[i]))  
+  }
+  #max change of max daily value
+  if(is.na(df_Castlegar_Combined$Max.Temp..Â.C.[i]) !=T && is.na(df_Castlegar_Combined$Max.Temp..Â.C.[i+1]) !=T  ){
+    max_rate_max[i]<-abs(abs(df_Castlegar_Combined$Max.Temp..Â.C.[i+1])-abs(df_Castlegar_Combined$Max.Temp..Â.C.[i]))  
+  }
+  #max change of min daily value
+   if(is.na(df_Castlegar_Combined$Min.Temp..Â.C.[i]) !=T && is.na(df_Castlegar_Combined$Min.Temp..Â.C.[i+1]) !=T  ){
+    max_rate_min[i]<-abs(abs(df_Castlegar_Combined$Min.Temp..Â.C.[i+1])-abs(df_Castlegar_Combined$Min.Temp..Â.C.[i]))  
+  }
+   }
+
+#compile the max ROC for each Julian Day
+ROC.Mean<- max(max_rate_mean,na.rm = T)
+ROC.Max<- max(max_rate_max,na.rm = T)
+ROC.Min<- max(max_rate_min,na.rm = T)
+
+```
+
+
+### Define the functions to calculate the daily rate of change for the Burn station data.
+
+
+```{r}
+ROC_Test<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+#create new columns IsBad with default value False (one for each temperature measurement)
+  Burn.input_Year$IsBad_ROC_Tair1<-F
+  Burn.input_Year$IsBad_ROC_Tair2<-F
+  Burn.input_Year$IsBad_ROC_Tair3<-F
+  Burn.input_Year$IsBad_ROC_Tair4<-F
+  Burn.input_Year$IsBad_ROC_Max<-F
+  Burn.input_Year$IsBad_ROC_Min<-F
+
+  #test Tair1  
+  for(i in 1:length(Burn.input_Year$Tair_Avg_C)){
+    if("Tair_Avg_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T && is.na(Burn.input_Year$Tair_Avg_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair_Avg_C[i+1])-abs(Burn.input_Year$Tair_Avg_C[i]))>ROC.Mean){
+       Burn.input_Year$IsBad_ROC_Tair1[i]<-T
+     } } }
+
+  #test Tair2
+    if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T && is.na(Burn.input_Year$Tair2_Avg_C[i+1])!=T ){
+         if(abs(abs(Burn.input_Year$Tair2_Avg_C[i+1])-abs(Burn.input_Year$Tair2_Avg_C[i]))>ROC.Mean){
+       Burn.input_Year$IsBad_ROC_Tair2[i]<-T
+     } } }
+    
+ #test Tair3
+  if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair3_Avg_C[i])!=T && is.na(Burn.input_Year$Tair3_Avg_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair3_Avg_C[i+1])-abs(Burn.input_Year$Tair3_Avg_C[i]))>ROC.Mean){
+       Burn.input_Year$IsBad_ROC_Tair3[i]<-T
+     } } }
+    
+  #test Tair4
+    if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair4_Avg_C[i])!=T && is.na(Burn.input_Year$Tair4_Avg_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair4_Avg_C[i+1])-abs(Burn.input_Year$Tair4_Avg_C[i]))>ROC.Mean){
+       Burn.input_Year$IsBad_ROC_Tair4[i]<-T
+     } } }
+    
+  #test max Tair
+    if("Tair_Max_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair_Max_C[i])!=T && is.na(Burn.input_Year$Tair_Max_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair_Max_C[i+1])-abs(Burn.input_Year$Tair_Max_C[i]))>ROC.Max){
+       Burn.input_Year$IsBad_ROC_Max[i]<-T
+     } } }
+    
+  #test max Tair2
+    if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair2_Max_C[i])!=T && is.na(Burn.input_Year$Tair2_Max_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair2_Max_C[i+1])-abs(Burn.input_Year$Tair2_Max_C[i]))>ROC.Max){
+       Burn.input_Year$IsBad_ROC_Max[i]<-T
+     } } }
+    
+  #test min Tair
+    if("Tair_Min_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair_Min_C[i])!=T && is.na(Burn.input_Year$Tair_Min_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair_Min_C[i+1])-abs(Burn.input_Year$Tair_Min_C[i]))>ROC.Min){
+       Burn.input_Year$IsBad_ROC_Min[i]<-T
+     } } }
+    
+  #test min Tair2
+    if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+      if(is.na(Burn.input_Year$Tair2_Min_C[i])!=T && is.na(Burn.input_Year$Tair2_Min_C[i+1])!=T ){
+        if(abs(abs(Burn.input_Year$Tair2_Min_C[i+1])-abs(Burn.input_Year$Tair2_Min_C[i]))>ROC.Min){
+       Burn.input_Year$IsBad_ROC_Min[i]<-T
+     } } }
+  }
+   return(Burn.input_Year)
+}
+```
+
+
+### Apply the ROC test functions. 
+
+```{r}
+if(Switch_buttom==F){
+  #for the historical dataset
+  df<-lapply(df, ROC_Test)
+}else{
+  #for a single year
+  input_years<-ROC_Test(input_years)
+}
+
+
+
+```
+
+
+## g. No Change Rule (NOC)
+
+If a sensor is damaged or not wired or programmed correctly, it may produce the same value for several days. This test compares measurements over 3 consecutive days and flags the data if they varied by less than 0.1 deg C.
+
+First define the functions to compare measurements over 3 consecutive days.
+
+
+```{r}
+No_Change_rule<-function(Burn.input_Year){
+   Burn.input_Year<-as.data.frame(Burn.input_Year)
+#create new columns IsBad with default value False (one for each temperature measurement)
+   Burn.input_Year$IsBad_NOC_Tair1<-F
+   Burn.input_Year$IsBad_NOC_Tair2<-F
+   Burn.input_Year$IsBad_NOC_Tair3<-F
+   Burn.input_Year$IsBad_NOC_Tair4<-F
+   Burn.input_Year$IsBad_NOC_Max<-F
+   Burn.input_Year$IsBad_NOC_Min<-F
+   
+#for Tair1
+      for(i in 1:length(Burn.input_Year$JulianDay)){
+     if("Tair_Avg_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T && is.na(Burn.input_Year$Tair_Avg_C[i+1])!=T && is.na(Burn.input_Year$Tair_Avg_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair_Avg_C[i+2]-Burn.input_Year$Tair_Avg_C[i+1])<0.1 && abs(Burn.input_Year$Tair_Avg_C[i+1]-Burn.input_Year$Tair_Avg_C[i])<0.1 && abs(abs(Burn.input_Year$Tair_Avg_C[i+2]-Burn.input_Year$Tair_Avg_C[i+1])-abs(Burn.input_Year$Tair_Avg_C[i+1]-Burn.input_Year$Tair_Avg_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Tair1[i]<-T
+           Burn.input_Year$IsBad_NOC_Tair1[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Tair1[i+2]<-T
+         } } }
+     
+#for Tair2
+     if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T && is.na(Burn.input_Year$Tair2_Avg_C[i+1])!=T && is.na(Burn.input_Year$Tair2_Avg_C[i+2])!=T){
+        if(abs(Burn.input_Year$Tair2_Avg_C[i+2]-Burn.input_Year$Tair2_Avg_C[i+1])<0.1 && abs(Burn.input_Year$Tair2_Avg_C[i+1]-Burn.input_Year$Tair2_Avg_C[i])<0.1 && abs(abs(Burn.input_Year$Tair2_Avg_C[i+2]-Burn.input_Year$Tair2_Avg_C[i+1])-abs(Burn.input_Year$Tair2_Avg_C[i+1]-Burn.input_Year$Tair2_Avg_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Tair2[i]<-T
+           Burn.input_Year$IsBad_NOC_Tair2[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Tair2[i+2]<-T
+         } } }
+     
+#for Tair3
+     if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair3_Avg_C[i])!=T && is.na(Burn.input_Year$Tair3_Avg_C[i+1])!=T && is.na(Burn.input_Year$Tair3_Avg_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair3_Avg_C[i+2]-Burn.input_Year$Tair3_Avg_C[i+1])<0.1 && abs(Burn.input_Year$Tair3_Avg_C[i+1]-Burn.input_Year$Tair3_Avg_C[i])<0.1 && abs(abs(Burn.input_Year$Tair3_Avg_C[i+2]-Burn.input_Year$Tair3_Avg_C[i+1])-abs(Burn.input_Year$Tair3_Avg_C[i+1]-Burn.input_Year$Tair3_Avg_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Tair3[i]<-T
+           Burn.input_Year$IsBad_NOC_Tair3[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Tair3[i+2]<-T
+         }  } }
+     
+#for Tair4
+     if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair4_Avg_C[i])!=T && is.na(Burn.input_Year$Tair4_Avg_C[i+1])!=T && is.na(Burn.input_Year$Tair4_Avg_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair4_Avg_C[i+2]-Burn.input_Year$Tair4_Avg_C[i+1])<0.1 && abs(Burn.input_Year$Tair4_Avg_C[i+1]-Burn.input_Year$Tair4_Avg_C[i])<0.1 && abs(abs(Burn.input_Year$Tair4_Avg_C[i+2]-Burn.input_Year$Tair4_Avg_C[i+1])-abs(Burn.input_Year$Tair4_Avg_C[i+1]-Burn.input_Year$Tair4_Avg_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Tair4[i]<-T
+           Burn.input_Year$IsBad_NOC_Tair4[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Tair4[i+2]<-T
+         } } }
+     
+#for Max Tair
+     if("Tair_Max_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair_Max_C[i])!=T && is.na(Burn.input_Year$Tair_Max_C[i+1])!=T && is.na(Burn.input_Year$Tair_Max_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair_Max_C[i+2]-Burn.input_Year$Tair_Max_C[i+1])<0.1 && abs(Burn.input_Year$Tair_Max_C[i+1]-Burn.input_Year$Tair_Max_C[i])<0.1 && abs(abs(Burn.input_Year$Tair_Max_C[i+2]-Burn.input_Year$Tair_Max_C[i+1])-abs(Burn.input_Year$Tair_Max_C[i+1]-Burn.input_Year$Tair_Max_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Max[i]<-T
+           Burn.input_Year$IsBad_NOC_Max[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Max[i+2]<-T
+         }  } }
+     
+#for Max Tair2
+     if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair2_Max_C[i])!=T && is.na(Burn.input_Year$Tair2_Max_C[i+1])!=T && is.na(Burn.input_Year$Tair2_Max_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair2_Max_C[i+2]-Burn.input_Year$Tair2_Max_C[i+1])<0.1 && abs(Burn.input_Year$Tair2_Max_C[i+1]-Burn.input_Year$Tair2_Max_C[i])<0.1 && abs(abs(Burn.input_Year$Tair2_Max_C[i+2]-Burn.input_Year$Tair2_Max_C[i+1])-abs(Burn.input_Year$Tair2_Max_C[i+1]-Burn.input_Year$Tair2_Max_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Max[i]<-T
+           Burn.input_Year$IsBad_NOC_Max[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Max[i+2]<-T
+         }  }}
+     
+#for Min Tair
+     if("Tair_Min_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair_Min_C[i])!=T && is.na(Burn.input_Year$Tair_Min_C[i+1])!=T && is.na(Burn.input_Year$Tair_Min_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair_Min_C[i+2]-Burn.input_Year$Tair_Min_C[i+1])<0.1 && abs(Burn.input_Year$Tair_Min_C[i+1]-Burn.input_Year$Tair_Min_C[i])<0.1 && abs(abs(Burn.input_Year$Tair_Min_C[i+2]-Burn.input_Year$Tair_Min_C[i+1])-abs(Burn.input_Year$Tair_Min_C[i+1]-Burn.input_Year$Tair_Min_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Min[i]<-T
+           Burn.input_Year$IsBad_NOC_Min[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Min[i+2]<-T
+         } } }
+     
+#for Min Tair2
+     if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+       if(is.na(Burn.input_Year$Tair2_Min_C[i])!=T && is.na(Burn.input_Year$Tair2_Min_C[i+1])!=T && is.na(Burn.input_Year$Tair2_Min_C[i+2])!=T){
+         if(abs(Burn.input_Year$Tair2_Min_C[i+2]-Burn.input_Year$Tair2_Min_C[i+1])<0.1 && abs(Burn.input_Year$Tair2_Min_C[i+1]-Burn.input_Year$Tair2_Min_C[i])<0.1 && abs(abs(Burn.input_Year$Tair2_Min_C[i+2]-Burn.input_Year$Tair2_Min_C[i+1])-abs(Burn.input_Year$Tair2_Min_C[i+1]-Burn.input_Year$Tair2_Min_C[i]))<0.1){
+           Burn.input_Year$IsBad_NOC_Min[i]<-T
+           Burn.input_Year$IsBad_NOC_Min[i+1]<-T
+           Burn.input_Year$IsBad_NOC_Min[i+2]<-T
+         }   } }
+   }
+   return(Burn.input_Year)
+}
+```
+
+
+### Apply the NOC test functions. 
+
+```{r }
+if(Switch_buttom==F){
+  #for the historical dataset
+  df<-lapply(df,No_Change_rule)
+}else{
+  #for a single year
+  input_years<-No_Change_rule(input_years)
+}
+
+```
+
+
+## h. Errors related in the Min and Max data
+
+When a datalogger is reset during a site visit or because of power problems the automatic tracking of minimum and maximum values is reset to zero. Depending when this reset occurs, the min or max value returned at the end of the day may be zero.
+
+This step detects and flags zeros in the minimum and maximum Tair records. First, define the functions.
+
+### Zeros in the Min and Max
+
+```{r}
+Detecting_Zeros_Min<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #add a new IsBad column with default value of False. 
+  Burn.input_Year$Zeros_Min<-F
+  
+  #use an if/then statement to detect if min is also available for Tair2
+  #use for loops within it to flag zero values
+  if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Min_C[i])!=T){
+      if(Burn.input_Year$Tair2_Min_C[i]==0 ) {
+      Burn.input_Year$Zeros_Min[i]<-T
+    }  }    }
+  }else{
+     for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Min_C[i])!=T){
+      if(Burn.input_Year$Tair_Min_C[i] ==0 ) {
+      Burn.input_Year$Zeros_Min[i]<-T
+    }  } }
+  }
+  return(Burn.input_Year)
+}
+
+
+Detecting_Zeros_Max<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #add a new IsBad column with default value of False. 
+  Burn.input_Year$Zeros_Max<-F
+  
+  #use an if/then statement to detect if max is also available for Tair2
+  #use for loops within it to flag zero values
+  if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Max_C[i])!=T){
+      if(Burn.input_Year$Tair2_Max_C[i]==0 ) {
+      Burn.input_Year$Zeros_Max[i]<-T
+    }   }    }
+  }else{
+     for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair_Max_C[i])!=T){
+      if(Burn.input_Year$Tair_Max_C[i] ==0 ) {
+      Burn.input_Year$Zeros_Max[i]<-T
+    }   }  }
+  }
+  return(Burn.input_Year)
+
+}
+
+```
+
+### Average are greater then Max and Min
+
+```{r}
+Detecting_Average_Min<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #add a new IsBad column with default value of False. 
+  Burn.input_Year$Average_Greater_Max<-F
+  
+   #use for loops within it to flag zero values
+  if("Tair2_Min_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T&&is.na(Burn.input_Year$Tair2_Min_C[i])!=T){
+      if(Burn.input_Year$Tair2_Avg_C[i]<Burn.input_Year$Tair2_Avg_C[i] ) {
+      Burn.input_Year$Average_Greater_Max[i]<-T
+    }  }    }
+  }else{
+     for (i in 1:length(Burn.input_Year$JulianDay)) {
+      if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T&&is.na(Burn.input_Year$Tair_Min_C[i])!=T){
+        if(Burn.input_Year$Tair_Avg_C[i]<Burn.input_Year$Tair_Avg_C[i] ) {
+          Burn.input_Year$Average_Greater_Max[i]<-T
+      }  } }
+  }
+  return(Burn.input_Year)
+}
+
+Detecting_Average_Max<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+  #add a new IsBad column with default value of False. 
+  Burn.input_Year$Average_Greater_Max<-F
+  
+   #use for loops within it to flag zero values
+  if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+    for (i in 1:length(Burn.input_Year$JulianDay)) {
+    if(is.na(Burn.input_Year$Tair2_Avg_C[i])!=T&&is.na(Burn.input_Year$Tair2_Max_C[i])!=T){
+      if(Burn.input_Year$Tair2_Avg_C[i]<Burn.input_Year$Tair2_Avg_C[i] ) {
+      Burn.input_Year$Average_Greater_Max[i]<-T
+    }  }    }
+  }else{
+     for (i in 1:length(Burn.input_Year$JulianDay)) {
+      if(is.na(Burn.input_Year$Tair_Avg_C[i])!=T&&is.na(Burn.input_Year$Tair_Max_C[i])!=T){
+        if(Burn.input_Year$Tair_Avg_C[i]<Burn.input_Year$Tair_Avg_C[i] ) {
+          Burn.input_Year$Average_Greater_Max[i]<-T
+      }  } }
+  }
+  return(Burn.input_Year)
+}
+```
+
+
+### Second, apply the functions for the historical dataset and for a single year.
+
+
+```{r}
+if(Switch_buttom==F){
+  #for the historical dataset
+  df<-lapply(df,Detecting_Zeros_Max)
+  df<-lapply(df,Detecting_Zeros_Min)
+  df<-lapply(df,Detecting_Average_Min)
+  df<-lapply(df,Detecting_Average_Max)
+
+}else{
+  #for a single year
+  input_years<-Detecting_Zeros_Max(input_years)
+  input_years<-Detecting_Zeros_Min(input_years)
+  input_years<-Detecting_Average_Min(input_years)
+  input_years<-Detecting_Average_Max(input_years)
+}
+
+```
+
+
+
+## i. Output the graphs
+
+These plots are used for the manual review step following the limits test. Daily mean air temperature for each year is plotted with the extreme daily maximums and minimums, and with the limits range (2 standard deviations above and below the mean).
+
+### For the years of 1992-2000 which only has 1 sensor
+
+```{r results="hide"}
+plot_function1<-function(Burn.input_Year){
+  #graph years that have 366 days
+  if(length(Burn.input_Year$Date) == 366){
+    df_first_ten_years.test<-
+      cbind(Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_first_ten_years.mean2,
+      max=df_first_ten_years.max2,
+      min=df_first_ten_years.min2,
+      tenyears_Extremly.max=df_first_ten_years.max.max2,
+      tenyears_Extremly.min=df_first_ten_years.min.min2,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+    df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+      scale_color_manual(name=" ",
+                         breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                         values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                         labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+    scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #set the label for y axis
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    #labs(fill = " ")+
+    geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    #legend.title(" ")+
+    #plot each point
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+   scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+      
+  scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+      theme_minimal()+
+      theme(
+    legend.position = c(2.5,0.8),
+    axis.text.x = element_text(angle = 45),
+    )+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #uses a white background
+    theme_classic()
+    #output the graph
+    ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }else{
+    #graph years that do not have 366 days
+    df_first_ten_years.test<-cbind(
+      Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_first_ten_years.mean,
+      max=df_first_ten_years.max,
+      min=df_first_ten_years.min,
+      tenyears_Extremly.max=df_first_ten_years.max.max,
+      tenyears_Extremly.min=df_first_ten_years.min.min,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+    df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+     scale_color_manual(name=" ",
+                        breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                        values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                        labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+     scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #get the label for y aix
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    #labs(fill = " ")+
+    geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    
+    #legend.title(" ")+
+    #plot the each points
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+  scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+   
+     scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+    theme(
+    legend.position = c(2.5,0.8),
+    legend.background = element_blank(),
+    axis.text.x = element_text(angle = 45)
+    )+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #uses a white background
+    theme_classic()
+    ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }
+  
+
+}
+```
+
+### For the year do have the two sensor using tair1 as the max and min
+
+```{r results="hide"}
+plot_function2<-function(Burn.input_Year){
+  if(length(Burn.input_Year$Date) == 366){
+    df_first_ten_years.test<-cbind(
+      Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_first_ten_years.mean2,
+      max=df_first_ten_years.max2,
+      min=df_first_ten_years.min2,
+      tenyears_Extremly.max=df_first_ten_years.max.max2,
+      tenyears_Extremly.min=df_first_ten_years.min.min2,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+    df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    theme( axis.title=element_text(size=10,face="plain",color="black"),
+    axis.text = element_text(size=10,face="plain",color="black"),
+    legend.position = c(2.5,0.8),
+    legend.background = element_blank(),legend.title = element_blank(),
+    axis.title.x = element_blank(),
+        legend.justification = c(1, 1),
+        legend.spacing = unit(0, "cm"), 
+        legend.margin = margin(0, 0, 0, 0, "cm"))+
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+      scale_color_manual(name=" ",
+                         breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                         values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                         labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+      scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #get the label for y aix
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    labs(fill = " ")+
+    geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    #legend.title(" ")+
+    #plot the each points
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+  scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+     scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #I using the background as white background
+    theme_classic()
+    ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }else{
+    df_first_ten_years.test<-cbind(
+      Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_first_ten_years.mean,
+      max=df_first_ten_years.max,
+      min=df_first_ten_years.min,
+      tenyears_Extremly.max=df_first_ten_years.max.max,
+      tenyears_Extremly.min=df_first_ten_years.min.min,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+    df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    theme( axis.title=element_text(size=10,face="plain",color="black"),
+    axis.text = element_text(size=10,face="plain",color="black"),
+    legend.position = c(2.5,0.8),
+    legend.background = element_blank(),legend.title = element_blank(),
+    axis.title.x = element_blank(),
+    )+
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+       scale_color_manual(name=" ",
+                          breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                          values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                          labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+      scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #get the label for y aix
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    labs(fill = " ")+
+   geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    #legend.title(" ")+
+    #plot the each points
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+  scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+     scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #I using the background as white background
+    theme_classic()
+    ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }
+  
+
+}
+```
+
+### For the year that using tair2 as the max and min
+
+```{r results="hide"}
+plot_function3<-function(Burn.input_Year){
+  
+  if(length(Burn.input_Year$Date)==366){
+    if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+      df_first_ten_years.test<-cbind(
+        Date=as.Date(Burn.input_Year$Date),
+        Ten_years.Mean=df_first_ten_years.mean2,
+        max=df_first_ten_years.max2,
+        min=df_first_ten_years.min2,
+        tenyears_Extremly.max=df_first_ten_years.max.max2,
+        tenyears_Extremly.min=df_first_ten_years.min.min2,
+        Daily.Mean=Burn.input_Year$Tair2_Avg_C)
+        }
+        else{df_first_ten_years.test<-cbind(
+          Date=as.Date(Burn.input_Year$Date),
+          Ten_years.Mean=df_first_ten_years.mean2,
+          max=df_first_ten_years.max2,
+          min=df_first_ten_years.min2,
+          tenyears_Extremly.max=df_first_ten_years.max.max2,
+          tenyears_Extremly.min=df_first_ten_years.min.min2,
+          Daily.Mean=Burn.input_Year$Tair_Avg_C)}
+      df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+      df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+      plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+      plo_title=Burn.input_Year$Year
+      
+      p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+      theme( axis.title=element_text(size=10,face="plain",color="black"),
+      axis.text = element_text(size=10,face="plain",color="black"),
+      legend.position = c(2.5,0.8),
+      legend.background = element_blank(),#legend.title = element_blank(),
+      #axis.title.x = element_blank(),
+      )+
+      #Draw the line
+      geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+         scale_color_manual(name=" ",
+                            breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                            values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                            labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+        scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+      #Title
+      ggtitle(plo_title)+
+      #get the label for y aix
+      ylab("Temperature (°C)")+
+      xlab("Date")+
+      labs(fill = " ")+
+      geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+      #legend.title(" ")+
+      #plot the each points
+      #geom_point(aes(color=variable),size=0.2)+
+      #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+      #for Y aix limits
+    scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+      
+       scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+      #geom_text(check_overlap = T)+
+      #the plot theme
+      #I using the background as white background
+      theme_classic()
+  ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }else{
+        if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+      df_first_ten_years.test<-cbind(
+        Date=as.Date(Burn.input_Year$Date),
+        Ten_years.Mean=df_first_ten_years.mean,
+        max=df_first_ten_years.max,
+        min=df_first_ten_years.min,
+        tenyears_Extremly.max=df_first_ten_years.max.max,
+        tenyears_Extremly.min=df_first_ten_years.min.min,
+        Daily.Mean=Burn.input_Year$Tair2_Avg_C)
+        }
+        else{df_first_ten_years.test<-cbind(
+          Date=as.Date(Burn.input_Year$Date),
+           Ten_years.Mean=df_first_ten_years.mean,
+          max=df_first_ten_years.max,
+          min=df_first_ten_years.min,
+          tenyears_Extremly.max=df_first_ten_years.max.max,
+          tenyears_Extremly.min=df_first_ten_years.min.min,
+          Daily.Mean=Burn.input_Year$Tair_Avg_C)}
+      df_first_ten_years.test<-as.data.frame(df_first_ten_years.test)
+      df_first_ten_years.test$Date<-as.Date(df_first_ten_years.test$Date,origin="1970-01-01")
+      plot_data_10years1.melt<-melt(df_first_ten_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+      plo_title=Burn.input_Year$Year
+      
+      p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+      theme( axis.title=element_text(size=10,face="plain",color="black"),
+      axis.text = element_text(size=10,face="plain",color="black"),
+      legend.position = c(2.5,0.8),
+      legend.background = element_blank(),legend.title = element_blank(),
+      axis.title.x = element_blank(),
+      )+
+      #Draw the line
+      geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+         scale_color_manual(name=" ",
+                            breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                            values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                            labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+        scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+      #Title
+      ggtitle(plo_title)+
+      #get the label for y aix
+      ylab("Temperature (°C)")+
+      xlab("Date")+
+      labs(fill = " ")+
+      geom_ribbon(data=df_first_ten_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+      #legend.title(" ")+
+      #plot the each points
+      #geom_point(aes(color=variable),size=0.2)+
+      #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+      #for Y aix limits
+     scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+
+     scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+      #geom_text(check_overlap = T)+
+      #the plot theme
+      #I using the background as white background
+      theme_classic()
+      
+      #save the plots
+  ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }
+  
+  
+}
+```
+
+
+### Create the graphs. The plots will automatically save to the working directory. 
+
+```{r results="hide"}
+
+if(Switch_buttom==F){
+  #for the historical dataset
+#for the years of 1992-2000 which only has 1 sensor
+lapply(df[1:10], plot_function1)
+
+#for the year do have the two sensor using tair1 as the max and min
+lapply(df[11:20], plot_function2)
+
+#for the year that using tair2 as the max and min
+lapply(df[21:29], plot_function3)
+
+}
+
+```
+
+
+### For the future use
+
+The graph will basically based on the limited range from 1992 to the year before the lastest year.  As for the future use, only polt_function2 will applyed in here. 
+
+
+
+#### For the year do have the two sensor using tair1 as the max and min
+
+```{r results="hide"}
+plot_function2.future<-function(Burn.input_Year){
+  if(length(Burn.input_Year$JulianDay) == 366){
+    df_all_preivous_years.test<-cbind(
+      Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_all_preivous.years.mean2,
+      max=df_all_preivous.years.max2,
+      min=df_all_preivous.years.min2,
+      tenyears_Extremly.max=df_all_preivous.years.max.max2,
+      tenyears_Extremly.min=df_all_preivous.years.min.min2,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_all_preivous_years.test<-as.data.frame(df_all_preivous_years.test)
+    df_all_preivous_years.test$Date<-as.Date(df_all_preivous_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_all_preivous_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    theme( axis.title=element_text(size=10,face="plain",color="black"),
+    axis.text = element_text(size=10,face="plain",color="black"),
+    legend.position = c(2.5,0.8),
+    legend.background = element_blank(),legend.title = element_blank(),
+    axis.title.x = element_blank(),
+    )+
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+       scale_color_manual(name=" ",
+                          breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                          values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                          labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+      scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #get the label for y aix
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    labs(fill = " ")+
+    geom_ribbon(data=df_all_preivous_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+    scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    #legend.title(" ")+
+    #plot the each points
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+  scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+    scale_x_date(date_breaks="2 weeks",date_labels = "%b")+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #I using the background as white background
+    theme_classic()
+ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }else{
+    df_all_preivous_years.test<-cbind(
+      Date=as.Date(Burn.input_Year$Date),
+      Ten_years.Mean=df_all_preivous.years.mean,
+      max=df_all_preivous.years.max,
+      min=df_all_preivous.years.min,
+      tenyears_Extremly.max=df_all_preivous.years.max.max,
+      tenyears_Extremly.min=df_all_preivous.years.min.min,
+      Daily.Mean=Burn.input_Year$Tair_Avg_C)
+    df_all_preivous_years.test<-as.data.frame(df_all_preivous_years.test)
+    df_all_preivous_years.test$Date<-as.Date(df_all_preivous_years.test$Date,origin="1970-01-01")
+    plot_data_10years1.melt<-melt(df_all_preivous_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+    plo_title=Burn.input_Year$Year
+    
+    p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+    theme( axis.title=element_text(size=10,face="plain",color="black"),
+    axis.text = element_text(size=10,face="plain",color="black"),
+    legend.position = c(2.5,0.8),
+    legend.background = element_blank(),legend.title = element_blank(),
+    axis.title.x = element_blank(),
+    )+
+    #Draw the line
+    geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+      scale_color_manual(name=" ",
+                         breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                         values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                         labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+      scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+    #Title
+    ggtitle(plo_title)+
+    #get the label for y aix
+    ylab("Temperature (°C)")+
+    xlab("Date")+
+    labs(fill = " ")+
+    geom_ribbon(data=df_all_preivous_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+    #legend.title(" ")+
+    #plot the each points
+    #geom_point(aes(color=variable),size=0.2)+
+    #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+    #for Y aix limits
+    scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+    scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+    #geom_text(check_overlap = T)+
+    #the plot theme
+    #I using the background as white background
+    theme_classic()
+ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }
+  
+
+}
+```
+
+#### For the year that using tair2 as the max and min
+
+```{r results="hide"}
+plot_function3.future<-function(Burn.input_Year){
+  
+  if(length(Burn.input_Year$JulianDay)==366){
+    if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+      df_all_preivous_years.test<-cbind(
+        Date=as.Date(Burn.input_Year$Date),
+        Ten_years.Mean=df_all_preivous.years.mean2,
+        max=df_all_preivous.years.max2,
+        min=df_all_preivous.years.min2,
+        tenyears_Extremly.max=df_all_preivous.years.max.max2,
+        tenyears_Extremly.min=df_all_preivous.years.min.min2,
+        Daily.Mean=Burn.input_Year$Tair2_Avg_C)
+        }
+        else{df_all_preivous_years.test<-cbind(
+          Date=as.Date(Burn.input_Year$Date),
+          Ten_years.Mean=df_all_preivous.years.mean2,
+          max=df_all_preivous.years.max2,
+          min=df_all_preivous.years.min2,
+          tenyears_Extremly.max=df_all_preivous.years.max.max2,
+          tenyears_Extremly.min=df_all_preivous.years.min.min2,
+          Daily.Mean=Burn.input_Year$Tair_Avg_C)}
+      df_all_preivous_years.test<-as.data.frame(df_all_preivous_years.test)
+      
+      plot_data_10years1.melt<-melt(df_all_preivous_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+      plo_title=Burn.input_Year$Year
+      
+      p<-ggplot(plot_data_10years1.melt, aes(x =JulianDay, y = value,color=variable), legend.title=element_blank())+
+      theme( axis.title=element_text(size=10,face="plain",color="black"),
+      axis.text = element_text(size=10,face="plain",color="black"),
+      legend.position = c(2.5,0.8),
+      legend.background = element_blank(),legend.title = element_blank(),
+      axis.title.x = element_blank(),
+      )+
+      #Draw the line
+      geom_line(size=0.5,inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+        scale_color_manual(name=" ",
+                           breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                           values=c("black","snow1","snow1","gray68","gray68","#FF6347"),
+                           labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+        scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+      #Title
+      ggtitle(plo_title)+
+      #get the label for y aix
+      ylab("Temperature (°C)")+
+      xlab("Date")+
+      labs(fill = " ")+
+      geom_ribbon(data=df_all_preivous_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+      #legend.title(" ")+
+      #plot the each points
+      #geom_point(aes(color=variable),size=0.2)+
+      #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+      #for Y aix limits
+    scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+      
+      scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+      #geom_text(check_overlap = T)+
+      #the plot theme
+      #I using the background as white background
+      theme_classic()
+  ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+
+  }else{
+        if("Tair2_Max_C" %in% colnames(Burn.input_Year)){
+        df_all_preivous_years.test<-cbind(
+        Date=Burn.input_Year$Date,
+        Ten_years.Mean=df_all_preivous.years.mean,
+        max=df_all_preivous.years.max,
+        min=df_all_preivous.years.min,
+        tenyears_Extremly.max=df_all_preivous.years.max.max,
+        tenyears_Extremly.min=df_all_preivous.years.min.min,
+        Daily.Mean=Burn.input_Year$Tair2_Avg_C)
+        }
+        else{df_all_preivous_years.test<-cbind(
+          Date=as.Date(Burn.input_Year$Date),
+           Ten_years.Mean=df_all_preivous.years.mean,
+          max=df_all_preivous.years.max,
+          min=df_all_preivous.years.min,
+          tenyears_Extremly.max=df_all_preivous.years.max.max,
+          tenyears_Extremly.min=df_all_preivous.years.min.min,
+          Daily.Mean=Burn.input_Year$Tair_Avg_C)}
+      df_all_preivous_years.test<-as.data.frame(df_all_preivous_years.test)
+      plot_data_10years1.melt<-melt(df_all_preivous_years.test,id="Date",factorsAsStrings = F,na.rm = F)
+      plo_title=Burn.input_Year$Year
+      
+      p<-ggplot(plot_data_10years1.melt, aes(x =Date, y = value,color=variable), legend.title=element_blank())+
+      theme( axis.title=element_text(size=10,face="plain",color="black"),
+      axis.text = element_text(size=10,face="plain",color="black"),
+      legend.position = c(2.5,0.8),
+      legend.background = element_blank(),legend.title = element_blank(),
+      axis.title.x = element_blank(),
+      )+
+      #Draw the line
+      geom_line(inherit.aes=T,group=plot_data_10years1.melt$variable,data = plot_data_10years1.melt,na.rm=T)+
+        scale_color_manual(name=" ",
+                           breaks=c("Ten_years.Mean","max","min","tenyears_Extremly.max","tenyears_Extremly.min","Daily.Mean"),
+                           values=c("black","snow","snow1","gray68","gray68","#FF6347"),
+                           labels=c("Long Term Mean", "Mean Daily Maximum", "Mean Daily Minimum","Extreme Maximum", "Extreme Minimum","Current Year Daily Mean"))+
+        
+        scale_size_manual(values = c("Ten_years.Mean"=0.01,"max"=0.5,"min"=0.5,"tenyears_Extremly.max"=0.5,"tenyears_Extremly.min"=0.5,"Daily.Mean"=0.5))+
+      #Title
+      ggtitle(plo_title)+
+      #get the label for y aix
+      ylab("Temperature (°C)")+
+      xlab("Date")+
+      labs(fill = " ")+
+      geom_ribbon(data=df_all_preivous_years.test,
+                      aes(x=Date,ymin=min,ymax=max,fill="Range Between Mean Daily Min and Max"),
+                       inherit.aes=F,alpha=0.1,linetype = 0)+
+      scale_fill_manual(name=" ", values=c("Range Between Mean Daily Min and Max" = "grey50"))+
+      #legend.title(" ")+
+      #plot the each points
+      #geom_point(aes(color=variable),size=0.2)+
+      #geom_text(hjust = 0, nudge_x = 0.05,check_overlap = T)+
+      #for Y aix limits
+    scale_y_continuous(breaks = seq(-25,45,by=5),labels = c(" ","-20"," ","-10"," ","0"," ","10"," ","20"," ","30"," ","40"," "))+     
+      scale_x_date(date_breaks = "1 month", date_minor_breaks = "1 week",date_labels = "%B")+
+      #geom_text(check_overlap = T)+
+      #the plot theme
+      #I using the background as white background
+      theme_classic()
+      
+      #save the plots
+  ggsave(p,filename = file.path(outPath.Graph,paste0(Burn.input_Year$Year,".png")),device = "png",width = 25,height = 15)
+  }
+  
+  
+}
+```
+
+#### apply the function
+
+```{r results="hide"}
+if(Switch_buttom==T){
+  if(Tair2_As_Major==F){
+  #for a single year
+  #if the input year uses Tair1 for the max and min, use:
+  plot_function2.future(input_years)
+  }else{
+  #if the input year uses Tair2 for the max and min, use:
+  plot_function3(input_years)
+  }
+
+
+}
+
+```
+
+
+## j. Output air temperature and flags for manual review
+
+The records are ready for manual review by a subject matter expert. Note that the folder path is specified in the script.
+
+
+```{r,results="hide" }
+#select only columns that contain date, temperature and flag values
+select_useful_information<-function(Burn.input_Year){
+  Burn.input_Year<-select(Burn.input_Year,starts_with("Date"),starts_with("Year"),starts_with("JulianDay"),starts_with("Tair"),starts_with("Is"),starts_with("Zero"))
+  return(Burn.input_Year)
+}
+
+#for the historical dataset
+df.test<-df
+df.test<-lapply(df.test,select_useful_information)
+
+#for a single year
+df.output<-select_useful_information(input_years)
+
+if(Switch_buttom==F){
+  ##for historical data
+  count<-1992
+  for(i in 1:length(df)){
+      write.csv(df.test[[i]], file=paste0("Burn_Step1_",count,".csv"),row.names = F )
+      count<-count+1
+  }
+}
+
+if(Switch_buttom==T){
+  #for a single year
+write.csv(df.output,file=paste0("Burn_Step1_",df.output$Year[1],".csv"),row.names = F )
+
+}
+
+```
+
+
+# 3. Summary 
+
+At the end of Step 1, the daily air temperature data has been run through four tests: limits, rate of change and no change tests, and zero detection. Data which failed these tests were flagged and output for manual review, when an expert made the final decision on whether to delete a flagged data point. The reviewed data was then used to update the limits test parameters for future use, and information on what data was deleted was saved in the station chronology spreadsheet.
+
+During this step, the annual data was graphed. 
+
+The reviewed data are ready for Step 2 of the QA/QC procedures.
+
+
+# 4. Revision Notes
+
+Last updated: 2020-04-06 Brandon Ming
+
+
+# 5. References
+
+1. Meek, D., & Hatfield, J. (1994). Data quality checking for single station meteorological databases. Agricultural and Forest Meteorology, 69(1-2), 85–109. doi: 10.1016/0168-1923(94)90083-3

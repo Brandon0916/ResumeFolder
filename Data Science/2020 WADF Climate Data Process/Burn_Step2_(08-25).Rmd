@@ -1,0 +1,1153 @@
+
+---
+title: "Step2 Burn Station"
+author: "Zimeng Ming"
+date: "16/03/2020"
+output: pdf_d°Cument
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8,tidy.opts=list(keep.blank.line=FALSE,width.cutoff=60),tidy=TRUE, 
+                      warning=FALSE, message=FALSE)
+```
+
+# Abstract 
+
+The step2 is after finishing the manually reviewed of the Step1, The dataset for the daily will load from the files that reviewed. This step will use the hourly data for detecting if there is a day missing too many hours of the data. 
+
+The pr°Cess is first load daily data from Step 1 into data frames (one per year),  and then load hourly data into data frames (one per year). After loading the data to R, there is a function to detect how many hours are missing for that day and merge the count number to the daily dataset. It will create a new column for each sensor for the hours of missing. 
+
+After all the pr°Cess, the final result will output to a CSV file and ready for the manually review. 
+
+# Step2 Code Part
+
+## library
+
+The library are required for all the users. 
+```{r}
+#package information:  will adding later in the final version 
+
+
+
+library(readxl)
+#library(xlsx)
+library(ggplot2)
+library(dplyr)
+library(scales)
+library(reshape2)
+library(plyr)
+library(naniar)
+#library(Rmisc)
+```
+
+## Load the data for daily
+
+As for this part, the code will seperatly for the old dataset use and future dataset use. 
+
+### For the old dataset
+```{r}
+#set the path to the datafile folder, here need the data from step1
+
+path<-"G:/BrandonMing 2020/Burn_output/Burn_Step1_Manually Reviewed"
+file.list <- list.files(path=path, pattern='_Step1_', full.names=T)
+#load the dataset
+
+df.Daily <- sapply(file.list, read.csv, simplify=FALSE)
+
+
+
+```
+
+```{r}
+path2<-"C:/Work/2020Work/FirstTestData/BURN/Hour_data_1992+"
+file.list2 <- list.files(path=path2, pattern='Burn_', full.names=T)
+#load the dataset
+
+df_hourly<- sapply(file.list2, read_excel, simplify=FALSE)
+
+```
+
+### For the future dataset.
+```{r}
+#for the daily data
+input_years.daily<-read.csv("G:/BrandonMing 2020/Burn_output/Burn_Step1_Manually Reviewed/_Step1_2018.csv")
+
+#for the hourly data
+input_years.hourly<-read_excel("H:/2020Work/FirstTestData/BURN/Hour_data_1992+/Burn_hour_2018.xlsx")
+
+```
+
+### Switch Buttom
+```{r}
+#Single year -->T ; ALL the years -->F
+Switch_buttom<-T
+
+```
+
+# Plots:
+
+##Output path
+```{r}
+# These folder must already exist before you use it. 
+plot1.Sensor1_out<-"./Hourly vs Daily Mean/Sensor1"
+plot1.Sensor2_out<-"./Hourly vs Daily Mean/Sensor2"
+plot1.Sensor3_out<-"./Hourly vs Daily Mean/Sensor3"
+plot1.Sensor4_out<-"./Hourly vs Daily Mean/Sensor4"
+
+plot2.Sensor1_out<-"./Diff in Means vs DOY/Sensor1"
+plot2.Sensor2_out<-"./Diff in Means vs DOY/Sensor2"
+plot2.Sensor3_out<-"./Diff in Means vs DOY/Sensor3"
+plot2.Sensor4_out<-"./Diff in Means vs DOY/Sensor4"
+
+
+plot3.Sensor1_out<-"./Diff in Means vs Daily Mean/Sensor1"
+plot3.Sensor2_out<-"./Diff in Means vs Daily Mean/Sensor2"
+plot3.Sensor3_out<-"./Diff in Means vs Daily Mean/Sensor3"
+plot3.Sensor4_out<-"./Diff in Means vs Daily Mean/Sensor4"
+```
+
+### Clean the bad data for hourly
+```{r}
+Bad_Data_Value<-c(-6999)
+
+# For Tair1 (the main sensor, also called Tair)
+defined_bad_values<-function(Burn.input_Year){
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair_Avg_C" %in% colnames(Burn.input_Year)){
+        #this function replaces bad data with NA; the values for bad data 
+        #are set manually and the list can be added to.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair_Avg_C=Bad_Data_Value))
+    }else{
+      return(Burn.input_Year)
+    }
+}
+
+# For Tair2
+defined_bad_values2<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair2_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, the number of bad data 
+        #should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair2_Avg_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+# For Tair3
+defined_bad_values3<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair3_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, the number of bad data 
+        #should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair3_Avg_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+# For Tair4
+defined_bad_values4<-function(Burn.input_Year){
+  
+  Burn.input_Year<-as.data.frame(Burn.input_Year)
+    if("Tair4_Avg_C" %in% colnames(Burn.input_Year)){
+        #the code to replace the bad data to NA, the number of bad data 
+        #should change manually for the future use.
+        Burn.input_Year %>% replace_with_na(replace=list(
+          Tair4_Avg_C=Bad_Data_Value))
+        
+    }else{
+      return(Burn.input_Year)
+    }
+  
+}
+
+df_hourly<-lapply(df_hourly,defined_bad_values)
+df_hourly<-lapply(df_hourly,defined_bad_values2)
+df_hourly<-lapply(df_hourly,defined_bad_values3)
+df_hourly<-lapply(df_hourly,defined_bad_values4)
+```
+
+
+
+## To detect the hourly missing data for each sensor
+
+The logic for the detection:
+  *Step1: First to gourp each year to each day by JulianDay
+  *Step2: count the number of missing data for that sensor 
+  *Step3: Merge the number to the Daily dataset
+  
+### Function of detect how many missing hours per day
+```{r}
+#this function use to detecting the number of missing data for each sensor
+#The Function will used in the detecting function below
+
+#Tair1
+count_na_Tair1<-function(list1){
+  count.na=0
+  
+  for (i in 1:length(list1$JulianDay)) {
+    if("Tair_Avg_C" %in% colnames(list1)){
+      if(is.na(list1$Tair_Avg_C[i])==T){
+        count.na=count.na+1
+      }
+    }
+  }
+  return(count.na)
+  
+}
+
+
+#Tair2
+count_na_Tair2<-function(list1){
+  count.na=0
+  
+  for (i in 1:length(list1$JulianDay)) {
+    if("Tair2_Avg_C" %in% colnames(list1)){
+      if(is.na(list1$Tair2_Avg_C[i])==T){
+        count.na=count.na+1
+      }
+    }
+  }
+  return(count.na)
+  
+}
+
+#Tair3
+count_na_Tair3<-function(list1){
+  count.na=0
+  
+  for (i in 1:length(list1$JulianDay)) {
+    if("Tair3_Avg_C" %in% colnames(list1)){
+      if(is.na(list1$Tair3_Avg_C[i])==T){
+        count.na=count.na+1
+      }
+    }
+  }
+  return(count.na)
+  
+}
+
+#Tair4
+count_na_Tair4<-function(list1){
+  count.na=0
+  
+  for (i in 1:length(list1$JulianDay)) {
+    if("Tair4_Avg_C" %in% colnames(list1)){
+      if(is.na(list1$Tair4_Avg_C[i])==T){
+        count.na=count.na+1
+      }
+    }
+  }
+  return(count.na)
+  
+}
+
+```
+
+
+### Functions of detecting the hourly missing for whole year
+```{r}
+#deteting function for the dataset
+
+#Tair1
+Hourly_count_Tair1<-function(Hourly.data){
+  Hourly.data<-as.data.frame(Hourly.data)
+  
+  #split to each day
+  Hourly.data_PerDay<-split(Hourly.data,Hourly.data$JulianDay)
+  
+  #detection the count number
+  Hourly.data_count<-sapply(Hourly.data_PerDay,count_na_Tair1)
+  
+  #return the numbers
+  return(Hourly.data_count)
+}
+
+#Tair2
+Hourly_count_Tair2<-function(Hourly.data){
+  Hourly.data<-as.data.frame(Hourly.data)
+  
+  #split to each day
+  Hourly.data_PerDay<-split(Hourly.data,Hourly.data$JulianDay)
+  
+  #detection the count number
+  Hourly.data_count<-sapply(Hourly.data_PerDay,count_na_Tair2)
+  
+  #return the numbers
+  return(Hourly.data_count)
+}
+
+#Tair3
+Hourly_count_Tair3<-function(Hourly.data){
+  Hourly.data<-as.data.frame(Hourly.data)
+  
+  #split to each day
+  Hourly.data_PerDay<-split(Hourly.data,Hourly.data$JulianDay)
+  
+  #detection the count number
+  Hourly.data_count<-sapply(Hourly.data_PerDay,count_na_Tair3)
+  
+  #return the numbers
+  return(Hourly.data_count)
+}
+
+#Tair4
+Hourly_count_Tair4<-function(Hourly.data){
+  Hourly.data<-as.data.frame(Hourly.data)
+  
+  #split to each day
+  Hourly.data_PerDay<-split(Hourly.data,Hourly.data$JulianDay)
+  
+  #detection the count number
+  Hourly.data_count<-sapply(Hourly.data_PerDay,count_na_Tair4)
+  
+  #return the numbers
+  return(Hourly.data_count)
+}
+
+
+```
+
+
+### Apply the funtions and get the list numbers
+
+```{r}
+if(Switch_buttom==F){
+  #for the old dataset
+  missingHours.Tair1<-lapply(df_hourly,Hourly_count_Tair1)
+  missingHours.Tair2<-lapply(df_hourly,Hourly_count_Tair2)
+  missingHours.Tair3<-lapply(df_hourly,Hourly_count_Tair3)
+  missingHours.Tair4<-lapply(df_hourly,Hourly_count_Tair4)
+
+}else{
+  #for the future dataset
+  missingHours.Tair1<-Hourly_count_Tair1(input_years.hourly)
+  missingHours.Tair2<-Hourly_count_Tair2(input_years.hourly)
+  missingHours.Tair3<-Hourly_count_Tair3(input_years.hourly)
+  missingHours.Tair4<-Hourly_count_Tair4(input_years.hourly)
+}
+
+
+```
+
+
+## Merge the numbers to the daily dataset
+
+### Function of the merge.
+```{r}
+#Tair1
+add_MissingNumber_to_Daily_Tair1<-function(Burn_1992,missingHours){
+  Burn_1992<-as.data.frame(Burn_1992)
+  
+  #Create the column of the each sensor
+  Burn_1992$Tair1_Missing<-0
+ 
+  
+  #for loop to merge the numbers 
+  for(i in 1:length(missingHours)){
+    for(j in 1:length(Burn_1992$JulianDay)){
+      if(names(missingHours[i])==Burn_1992$JulianDay[j]){
+     Burn_1992$Tair1_Missing[j]=missingHours[i]
+      }  
+    }
+   
+  }
+  return(Burn_1992)
+  
+}
+
+
+
+#Tair2
+add_MissingNumber_to_Daily_Tair2<-function(Burn_1992,missingHours){
+  Burn_1992<-as.data.frame(Burn_1992)
+  
+  if("Tair2_Avg_C" %in% colnames(Burn_1992)){
+    #Create the column of the each sensor
+    Burn_1992$Tair2_Missing<-0
+   
+    
+    #for loop to merge the numbers 
+    for(i in 1:length(missingHours)){
+      for(j in 1:length(Burn_1992$JulianDay)){
+        if(names(missingHours[i])==Burn_1992$JulianDay[j]){
+       Burn_1992$Tair2_Missing[j]=missingHours[i]
+        }  
+      }
+     
+    }
+     return(Burn_1992)
+  }else{
+    return(Burn_1992)
+  }
+  
+}
+
+#Tair3
+add_MissingNumber_to_Daily_Tair3<-function(Burn_1992,missingHours){
+  Burn_1992<-as.data.frame(Burn_1992)
+  
+  if("Tair3_Avg_C" %in% colnames(Burn_1992)){
+    #Create the column of the each sensor
+    Burn_1992$Tair3_Missing<-0
+   
+    
+    #for loop to merge the numbers 
+    for(i in 1:length(missingHours)){
+      for(j in 1:length(Burn_1992$JulianDay)){
+        if(names(missingHours[i])==Burn_1992$JulianDay[j]){
+       Burn_1992$Tair3_Missing[j]=missingHours[i]
+        }  
+      }
+     
+    }
+    return(Burn_1992)
+  }else{
+    return(Burn_1992)
+  }
+  
+}
+
+#Tair4
+add_MissingNumber_to_Daily_Tair4<-function(Burn_1992,missingHours){
+  Burn_1992<-as.data.frame(Burn_1992)
+  
+  if("Tair4_Avg_C" %in% colnames(Burn_1992)){
+    #Create the column of the each sensor
+    Burn_1992$Tair4_Missing<-0
+   
+    
+    #for loop to merge the numbers 
+    for(i in 1:length(missingHours)){
+      for(j in 1:length(Burn_1992$JulianDay)){
+        if(names(missingHours[i])==Burn_1992$JulianDay[j]){
+       Burn_1992$Tair4_Missing[j]=missingHours[i]
+        }  
+      }
+     
+    }
+    return(Burn_1992)
+  }else{
+    return(Burn_1992)
+  }
+  
+}
+
+
+
+
+```
+
+### Apply the functions
+
+```{r}
+if(Switch_buttom==F){
+  #apply the functions for old dataset
+  df.Daily<-mapply(add_MissingNumber_to_Daily_Tair1, df.Daily,missingHours.Tair1)
+  df.Daily<-mapply(add_MissingNumber_to_Daily_Tair2, df.Daily,missingHours.Tair2)
+  df.Daily<-mapply(add_MissingNumber_to_Daily_Tair3, df.Daily,missingHours.Tair3)
+  df.Daily<-mapply(add_MissingNumber_to_Daily_Tair4, df.Daily,missingHours.Tair4)
+
+}else{
+  
+  #apply the function for future dataset
+  input_years.daily<-add_MissingNumber_to_Daily_Tair1(input_years.daily,missingHours.Tair1)
+  input_years.daily<-add_MissingNumber_to_Daily_Tair1(input_years.daily,missingHours.Tair2)
+  input_years.daily<-add_MissingNumber_to_Daily_Tair1(input_years.daily,missingHours.Tair3)
+  input_years.daily<-add_MissingNumber_to_Daily_Tair1(input_years.daily,missingHours.Tair4)
+}
+
+```
+
+## Output the dataset
+
+### This is use for the old dataset
+```{r}
+# below this line will be the old dataset uses
+df_Temp<-function(Burn_1992){
+  Burn_1992<-select(Burn_1992,starts_with("Date"),starts_with("JulianDay"),starts_with("Tair"))
+  return(Burn_1992)
+}
+
+
+```
+
+
+# Summary
+
+After this step, the missing hours of each sensor will show in the new column saved in the new csv file. The user need to manually review the data and flag the bad data out. 
+
+# Notes for editing
+
+Last Edit Date: 2020-04-07 Zimeng Ming
+
+
+
+
+-------------------------------
+# new section
+
+## Test the each sensor 
+
+```{r}
+Hourly_Mean.Sensor1<-function(input.year){
+  Hourly.mean<-tapply(input.year$Tair_Avg_C,input.year$JulianDay,mean,na.rm=T)
+  return(Hourly.mean)
+}
+
+Hourly_Mean.Sensor2<-function(input.year){
+  if("Tair2_Avg_C" %in% colnames(input.year)){
+    Hourly.mean<-tapply(input.year$Tair2_Avg_C,input.year$JulianDay,mean)
+    return(Hourly.mean)
+  }
+  
+}
+
+Hourly_Mean.Sensor3<-function(input.year){
+  if("Tair3_Avg_C" %in% colnames(input.year)){
+    Hourly.mean<-tapply(input.year$Tair3_Avg_C,input.year$JulianDay,mean)
+     return(Hourly.mean)
+  }
+ 
+}
+
+Hourly_Mean.Sensor4<-function(input.year){
+  if("Tair4_Avg_C" %in% colnames(input.year)){
+    Hourly.mean<-tapply(input.year$Tair4_Avg_C,input.year$JulianDay,mean)
+    return(Hourly.mean)
+  }
+  
+}
+```
+
+### apply the function
+```{r}
+if(Switch_buttom==F){
+  Hourly_Mean.Sensor1_data<-lapply(df_hourly, Hourly_Mean.Sensor1)
+  Hourly_Mean.Sensor2_data<-lapply(df_hourly, Hourly_Mean.Sensor2)
+  Hourly_Mean.Sensor3_data<-lapply(df_hourly, Hourly_Mean.Sensor3)
+  Hourly_Mean.Sensor4_data<-lapply(df_hourly, Hourly_Mean.Sensor4)
+}else{
+  Hourly_Mean.Sensor1_data<-Hourly_Mean.Sensor1(input_years.hourly)
+  Hourly_Mean.Sensor2_data<-Hourly_Mean.Sensor2(input_years.hourly)
+  Hourly_Mean.Sensor3_data<-Hourly_Mean.Sensor3(input_years.hourly)
+  Hourly_Mean.Sensor4_data<-Hourly_Mean.Sensor4(input_years.hourly)
+}
+
+```
+
+Note: If there is no Sensor data for that year, it will return Null for those years.
+
+
+## Calculate the difference between Hourly and Daily.
+
+```{r}
+Hourly_Daily_Compare.Sensor1<-function(Hourly.input,Daily.input){
+  
+  #For the default the Daily_Hourly different are zero
+  Daily.input$Daily_Hourly.diff_Tair1<-0
+  
+  #Flag for the suspect data
+  Daily.input$Hourly.Suspect_Tair1<-F
+  for(i in 1:length(Daily.input$JulianDay)){
+    Daily.input$Hourly.Tair1[i]<-Hourly.input[i]
+    if(is.na(Hourly.input[i])==F && is.na(Daily.input$Tair_Avg_C[i])==F && names(Hourly.input[i])==Daily.input$JulianDay[i]){
+      Daily.input$Daily_Hourly.diff_Tair1[i]<- Daily.input$Hourly.Tair1[i]-Daily.input$Tair_Avg_C[i]
+      if(abs(Daily.input$Daily_Hourly.diff_Tair1[i])>=0.1){
+        Daily.input$Hourly.Suspect_Tair1[i]<-T
+      }}}
+  return(Daily.input)
+}
+
+Hourly_Daily_Compare.Sensor2<-function(Hourly.input,Daily.input){
+    
+   #IF there is Tair2 in the year
+   if("Tair2_Avg_C" %in% colnames(Daily.input)){
+    
+    #For the default the Daily_Hourly different are zero
+    Daily.input$Daily_Hourly.diff_Tair2<-0
+    
+    #Flag for the suspect data
+    Daily.input$Hourly.Suspect_Tair2<-F
+  
+    for(i in 1:length(Daily.input$JulianDay)){
+      Daily.input$Hourly.Tair2[i]<-Hourly.input[i]
+      if(is.na(Hourly.input[i])==F && is.na(Daily.input$Tair2_Avg_C[i])==F && names(Hourly.input[i])==Daily.input$JulianDay[i]){
+        Daily.input$Daily_Hourly.diff_Tair2[i]<-Daily.input$Hourly.Tair2[i]-Daily.input$Tair2_Avg_C[i]
+        if(is.na(Daily.input$Daily_Hourly.diff_Tair2[i])!=T && abs(Daily.input$Daily_Hourly.diff_Tair2[i])>=0.1){
+          Daily.input$Hourly.Suspect_Tair2[i]<-T
+        }}}}
+  return(Daily.input)
+}
+
+Hourly_Daily_Compare.Sensor3<-function(Hourly.input,Daily.input){
+    
+   #IF there is Tair3 in the year
+   if("Tair3_Avg_C" %in% colnames(Daily.input)){
+    
+    #For the default the Daily_Hourly different are zero
+    Daily.input$Daily_Hourly.diff_Tair3<-0
+    
+    #Flag for the suspect data
+    Daily.input$Hourly.Suspect_Tair3<-F
+    Daily.input$Hourly.Tair3<-0
+  
+    for(i in 1:length(Daily.input$JulianDay)){
+      if(is.na(Hourly.input[i])!=T){
+        Daily.input$Hourly.Tair3[i]<-Hourly.input[i]
+      }
+      if(is.na(Hourly.input[i])==F && is.na(Daily.input$Tair3_Avg_C[i])==F && names(Hourly.input[i])==Daily.input$JulianDay[i]){
+        Daily.input$Daily_Hourly.diff_Tair3[i]<-Daily.input$Hourly.Tair3[i]-Daily.input$Tair3_Avg_C[i]
+        if(is.na(Daily.input$Daily_Hourly.diff_Tair3[i])!=T && abs(Daily.input$Daily_Hourly.diff_Tair3[i])>=0.1){
+          Daily.input$Hourly.Suspect_Tair3[i]<-T
+        }}}}
+  return(Daily.input)
+}
+
+Hourly_Daily_Compare.Sensor4<-function(Hourly.input,Daily.input){
+    
+   #IF there is Tair4 in the year
+   if("Tair4_Avg_C" %in% colnames(Daily.input)){
+    
+    #For the default the Daily_Hourly different are zero
+    Daily.input$Daily_Hourly.diff_Tair4<-0
+    
+    #Flag for the suspect data
+    Daily.input$Hourly.Suspect_Tair4<-F
+  
+    for(i in 1:length(Daily.input$JulianDay)){
+      if(is.na(Hourly.input[i])!=T){
+        Daily.input$Hourly.Tair4[i]<-Hourly.input[i]
+      }
+      if(is.na(Hourly.input[i])==F && is.na(Daily.input$Tair4_Avg_C[i])==F && names(Hourly.input[i])==Daily.input$JulianDay[i]){
+        Daily.input$Daily_Hourly.diff_Tair4[i]<-Daily.input$Hourly.Tair4[i]-Daily.input$Tair4_Avg_C[i]
+        if(abs(Daily.input$Daily_Hourly.diff_Tair4[i])>=0.1){
+          Daily.input$Hourly.Suspect_Tair4[i]<-T
+        }}}}
+  return(Daily.input)
+}
+```
+
+
+### Apply 
+```{r}
+if(Switch_buttom==F){
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor1,Hourly_Mean.Sensor1_data, df.Daily)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor2,Hourly_Mean.Sensor2_data, df.Compared)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor3,Hourly_Mean.Sensor3_data, df.Compared)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor4,Hourly_Mean.Sensor4_data, df.Compared)
+}else{
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor1,Hourly_Mean.Sensor1_data, input_years.daily)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor2,Hourly_Mean.Sensor2_data, df.Compared)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor3,Hourly_Mean.Sensor3_data, df.Compared)
+  df.Compared<-mapply(Hourly_Daily_Compare.Sensor4,Hourly_Mean.Sensor4_data, df.Compared)
+}
+
+```
+
+
+### Output the result 
+```{r}
+if(Switch_buttom==F){
+  count<-1992
+  for(i in 1:length(df.Compared)){
+      write.csv(df.Compared[[i]], file=paste0("Cabin_Step2_Daily_Hourly_Compared",count,".csv"),row.names = F )
+      count<-count+1
+  }
+}else{
+  write.csv(df.Compared,file=paste0("Cabin_Step2_Daily_Hourly_Compared ",format(as.Date( df.Compared$Date, format="%Y-%m-%d"),"%Y")[1],".csv"))
+}
+
+```
+
+# Plots:
+
+##Output path
+```{r}
+# These folder must already exist before you use it. 
+plot1.Sensor1_out<-"./Hourly vs Daily Mean/Sensor1"
+plot1.Sensor2_out<-"./Hourly vs Daily Mean/Sensor2"
+plot1.Sensor3_out<-"./Hourly vs Daily Mean/Sensor3"
+plot1.Sensor4_out<-"./Hourly vs Daily Mean/Sensor4"
+
+plot2.Sensor1_out<-"./Diff in Means vs DOY/Sensor1"
+plot2.Sensor2_out<-"./Diff in Means vs DOY/Sensor2"
+plot2.Sensor3_out<-"./Diff in Means vs DOY/Sensor3"
+plot2.Sensor4_out<-"./Diff in Means vs DOY/Sensor4"
+
+
+plot3.Sensor1_out<-"./Diff in Means vs Daily Mean/Sensor1"
+plot3.Sensor2_out<-"./Diff in Means vs Daily Mean/Sensor2"
+plot3.Sensor3_out<-"./Diff in Means vs Daily Mean/Sensor3"
+plot3.Sensor4_out<-"./Diff in Means vs Daily Mean/Sensor4"
+```
+
+
+
+## a. Compare -	Daily Mean from Hourly Data vs. Logger Daily Mean (vertical axis, horizontal axis)
+
+In this section, the daily measurements from different sensors are compared to look for biases and drift. One graph is produced for each year. Tair 1 is the primary sensor measurement, while all others are considered secondary. Multiple sensors were only used between 2000 and 2014.
+
+### Define the plotting and image export function
+
+```{r }      
+Daily_Mean_Hourly_Mean.Sensor1<-function(input.years){
+  #copy all daily temperature values into a single dataframe
+  plot_data<-cbind(Daily.Mean= input.years$Tair_Avg_C,Hourly.Mean=input.years$Hourly.Tair1)
+ 
+  plot_data<-as.data.frame(plot_data)
+  #set and centre the title
+  plot_title=paste0("Daily Mean VS Hourly Mean Sensor1 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+ 
+  
+  #plot the data using ggplot
+p<-ggplot(plot_data, aes(x =Daily.Mean, y = Hourly.Mean))+
+    ggtitle(plot_title)+
+   geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+    #label axes
+    ylab("Hourly Mean (°C)")+
+    xlab("Daily Mean (°C)")+
+  
+    #set axis ranges
+    scale_y_continuous(limits=c(-25,30))+
+    scale_x_continuous(limits=c(-25,30))+
+    #geom_text(check_overlap = T)+
+    theme(axis.title=element_text(size=10,face="plain",color="black"),
+           axis.text = element_text(size=10,face="plain",color="black"),
+           legend.position = c(2.5,0.8),
+           legend.background = element_blank(),legend.title = NULL,
+           )+
+    #use a white background
+    theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                 linetype="dashed", size=0.2)
+  #}
+  ggsave(p,filename =file.path(plot1.Sensor1_out, paste0("Plot1 Sensor1 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+}
+
+Daily_Mean_Hourly_Mean.Sensor2<-function(input.years){
+  if("Tair2_Avg_C" %in% colnames(input.years)){
+      #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Daily.Mean= input.years$Tair2_Avg_C,Hourly.Mean=input.years$Hourly.Tair2)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Daily Mean VS Hourly Mean Sensor2 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    #plot the data using ggplot
+  p<-ggplot(plot_data, aes(x =Daily.Mean, y = Hourly.Mean))+
+      ggtitle(plot_title)+
+     geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+      #label axes
+      ylab("Hourly Mean (°C)")+
+      xlab("Daily Mean (°C)")+
+    
+      #set axis ranges
+      scale_y_continuous(limits=c(-25,30))+
+      scale_x_continuous(limits=c(-25,30))+
+      #geom_text(check_overlap = T)+
+      theme(axis.title=element_text(size=10,face="plain",color="black"),
+             axis.text = element_text(size=10,face="plain",color="black"),
+             legend.position = c(2.5,0.8),
+             legend.background = element_blank(),legend.title = NULL,
+             )+
+      #use a white background
+      theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                   linetype="dashed", size=0.2)
+    #}
+    ggsave(p,filename =file.path(plot1.Sensor2_out, paste0("Plot1 Sensor2 ",format(as.Date( input.years$Date,  format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+
+  }
+  
+Daily_Mean_Hourly_Mean.Sensor3<-function(input.years){
+  if("Tair3_Avg_C" %in% colnames(input.years)){
+      #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Daily.Mean= input.years$Tair3_Avg_C,Hourly.Mean=input.years$Hourly.Tair3)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Daily Mean VS Hourly Mean Sensor3 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    #plot the data using ggplot
+  p<-ggplot(plot_data, aes(x =Daily.Mean, y = Hourly.Mean))+
+      ggtitle(plot_title)+
+     geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+      #label axes
+      ylab("Hourly Mean (°C)")+
+      xlab("Daily Mean (°C)")+
+    
+      #set axis ranges
+      scale_y_continuous(limits=c(-25,30))+
+      scale_x_continuous(limits=c(-25,30))+
+      #geom_text(check_overlap = T)+
+      theme(axis.title=element_text(size=10,face="plain",color="black"),
+             axis.text = element_text(size=10,face="plain",color="black"),
+             legend.position = c(2.5,0.8),
+             legend.background = element_blank(),legend.title = NULL,
+             )+
+      #use a white background
+      theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                   linetype="dashed", size=0.2)
+    #}
+    ggsave(p,filename =file.path(plot1.Sensor3_out, paste0("Plot1 Sensor3 ",format(as.Date( input.years$Date,  format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+
+}
+  
+Daily_Mean_Hourly_Mean.Sensor4<-function(input.years){
+  if("Tair4_Avg_C" %in% colnames(input.years)){
+      #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Daily.Mean= input.years$Tair4_Avg_C,Hourly.Mean=input.years$Hourly.Tair4)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Daily Mean VS Hourly Mean Sensor4 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    #plot the data using ggplot
+  p<-ggplot(plot_data, aes(x =Daily.Mean, y = Hourly.Mean))+
+      ggtitle(plot_title)+
+     geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+      #label axes
+      ylab("Hourly Mean (°C)")+
+      xlab("Daily Mean (°C)")+
+    
+      #set axis ranges
+      scale_y_continuous(limits=c(-25,30))+
+      scale_x_continuous(limits=c(-25,30))+
+      #geom_text(check_overlap = T)+
+      theme(axis.title=element_text(size=10,face="plain",color="black"),
+             axis.text = element_text(size=10,face="plain",color="black"),
+             legend.position = c(2.5,0.8),
+             legend.background = element_blank(),legend.title = NULL,
+             )+
+      #use a white background
+      theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                   linetype="dashed", size=0.2)
+    #}
+    ggsave(p,filename =file.path(plot1.Sensor4_out, paste0("Plot1 Sensor4 ",format(as.Date( input.years$Date,  format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+
+}
+
+```
+
+### Apply the function
+
+```{r Tair1vsTair2_3_4,echo=F}
+
+lapply(df.Compared,Daily_Mean_Hourly_Mean.Sensor1)
+lapply(df.Compared,Daily_Mean_Hourly_Mean.Sensor2)
+lapply(df.Compared,Daily_Mean_Hourly_Mean.Sensor3)
+lapply(df.Compared,Daily_Mean_Hourly_Mean.Sensor4)
+
+```
+
+## b. -	Temperature Difference vs. Day of Year (vertical axis, horizontal axis)
+
+
+```{r}
+Daily_Hourly_Diff_JulianDay.Sensor1<-function(input.years){
+  #copy all daily temperature values into a single dataframe
+  plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair1,Date=input.years$Date)
+ 
+  plot_data<-as.data.frame(plot_data)
+  #set and centre the title
+  plot_title=paste0("Difference VS Date Sensor1 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+ 
+  
+  
+  #plot the data using ggplot
+p<-ggplot(plot_data, aes(x =Date, y =Difference.Sensor ))+
+    ggtitle(plot_title)+
+   geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+    #label axes
+    ylab("Difference of the Daily and Hourly Temperature (°C)")+
+    xlab("Date")+
+  
+    #set axis ranges
+    scale_y_continuous(limits=c(-2,2))+
+    #geom_text(check_overlap = T)+
+    theme(axis.title=element_text(size=10,face="plain",color="black"),
+           axis.text = element_text(size=10,face="plain",color="black"),
+           legend.position = c(2.5,0.8),
+           legend.background = element_blank(),legend.title = NULL,
+           )+
+    #use a white background
+    theme_classic()
+  #}
+  ggsave(p,filename =file.path(plot2.Sensor1_out, paste0("Plot2 Sensor1 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+}
+
+Daily_Hourly_Diff_JulianDay.Sensor2<-function(input.years){
+  if("Tair2_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair2,Date=input.years$Date)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Date Sensor2 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Date, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Date")+
+      
+        #set axis ranges
+        scale_y_continuous(limits=c(-2,2))+
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()
+      #}
+      ggsave(p,filename =file.path(plot2.Sensor2_out, paste0("Plot2 Sensor2 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+      }
+}
+
+Daily_Hourly_Diff_JulianDay.Sensor3<-function(input.years){
+  if("Tair3_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair3,Date=input.years$Date)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Date Sensor3 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Date, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Date")+
+      
+        #set axis ranges
+        scale_y_continuous(limits=c(-2,2))+
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()
+      #}
+      ggsave(p,filename =file.path(plot2.Sensor3_out, paste0("Plot2 Sensor3 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+      }
+}
+
+Daily_Hourly_Diff_JulianDay.Sensor4<-function(input.years){
+  if("Tair4_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair4,Date=input.years$Date)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Date Sensor4 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Date, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Date")+
+      
+        #set axis ranges
+        scale_y_continuous(limits=c(-2,2))+
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()
+      #}
+      ggsave(p,filename =file.path(plot2.Sensor4_out, paste0("Plot2 Sensor4 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+      }
+}
+```
+
+### Apply the function
+
+```{r Tair1vsTair2_3_4,echo=F}
+
+lapply(df.Compared,Daily_Hourly_Diff_JulianDay.Sensor1)
+lapply(df.Compared,Daily_Hourly_Diff_JulianDay.Sensor2)
+lapply(df.Compared,Daily_Hourly_Diff_JulianDay.Sensor3)
+lapply(df.Compared,Daily_Hourly_Diff_JulianDay.Sensor4)
+
+```
+
+
+## c. -	Temperature Difference vs. Logger Daily Mean (vertical axis, horizontal axis)
+
+```{r}
+Daily_Hourly_Diff_Daily_Mean.Sensor1<-function(input.years){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair1,Daily.Mean=input.years$Tair_Avg_C)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Daily Mean Sensor1 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Daily.Mean, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Sensor Daily Mean Temperature (°C)")+
+      
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                     linetype="dashed", size=0.2)
+      #}
+      ggsave(p,filename =file.path(plot3.Sensor1_out, paste0("Plot3 Sensor1 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+
+}
+
+
+Daily_Hourly_Diff_Daily_Mean.Sensor2<-function(input.years){
+  if("Tair2_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair2,Daily.Mean=input.years$Tair2_Avg_C)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Daily Mean Sensor2 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Daily.Mean, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Sensor Daily Mean Temperature (°C)")+
+      
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                     linetype="dashed", size=0.2)
+      #}
+      ggsave(p,filename =file.path(plot3.Sensor2_out, paste0("Plot3 Sensor2 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+}
+
+Daily_Hourly_Diff_Daily_Mean.Sensor3<-function(input.years){
+  if("Tair3_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair3,Daily.Mean=input.years$Tair3_Avg_C)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Daily Mean Sensor3 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Daily.Mean, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Sensor Daily Mean Temperature (°C)")+
+      
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                     linetype="dashed", size=0.2)
+      #}
+      ggsave(p,filename =file.path(plot3.Sensor3_out, paste0("Plot3 Sensor3 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+}
+
+Daily_Hourly_Diff_Daily_Mean.Sensor4<-function(input.years){
+  if("Tair4_Avg_C" %in% colnames(input.years)){
+    #copy all daily temperature values into a single dataframe
+    plot_data<-cbind(Difference.Sensor= input.years$Daily_Hourly.diff_Tair4,Daily.Mean=input.years$Tair4_Avg_C)
+   
+    plot_data<-as.data.frame(plot_data)
+    #set and centre the title
+    plot_title=paste0("Difference VS Daily Mean Sensor4 - ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1])
+   
+    
+    
+    #plot the data using ggplot
+    p<-ggplot(plot_data, aes(x =Daily.Mean, y =Difference.Sensor ))+
+        ggtitle(plot_title)+
+       geom_point(size=1.5,inherit.aes=T,data = plot_data,na.rm=T)+
+        #label axes
+        ylab("Difference of the Daily and Hourly Temperature (°C)")+
+        xlab("Sensor Daily Mean Temperature (°C)")+
+      
+        #geom_text(check_overlap = T)+
+        theme(axis.title=element_text(size=10,face="plain",color="black"),
+               axis.text = element_text(size=10,face="plain",color="black"),
+               legend.position = c(2.5,0.8),
+               legend.background = element_blank(),legend.title = NULL,
+               )+
+        #use a white background
+        theme_classic()+geom_abline(intercept = 0, slope = 1, color="red", 
+                     linetype="dashed", size=0.2)
+      #}
+      ggsave(p,filename =file.path(plot3.Sensor4_out, paste0("Plot3 Sensor4 ",format(as.Date( input.years$Date, format="%Y-%m-%d"),"%Y")[1],".png")),device = "png" ,width = 15,height=15)
+  }
+}
+```
+
+
+### Apply the function
+
+```{r Tair1vsTair2_3_4,echo=F}
+
+lapply(df.Compared,Daily_Hourly_Diff_Daily_Mean.Sensor1)
+lapply(df.Compared,Daily_Hourly_Diff_Daily_Mean.Sensor2)
+lapply(df.Compared,Daily_Hourly_Diff_Daily_Mean.Sensor3)
+lapply(df.Compared,Daily_Hourly_Diff_Daily_Mean.Sensor4)
+```
