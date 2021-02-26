@@ -17,7 +17,7 @@ The main language I used is Python with the request and beautifulsoup module. Th
 4. Using D3 to build to visulization dashboard for the data. (Future working, estimated complete on April)
 
 ### Get the Data from website:
-The origin website create by BC CDC is: [![http://covid-19.bccdc.ca/index_files/logo.png]](http://www.bccdc.ca/health-info/diseases-conditions/covid-19/data)
+The origin website create by BC CDC is: [![](http://covid-19.bccdc.ca/index_files/logo.png)](http://www.bccdc.ca/health-info/diseases-conditions/covid-19/data)
 
 The python notebook script are [here](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/Covid/Scraping%20the%20COVID-19%20Data%20from%20Official%20Website.ipynb)
 
