@@ -30,16 +30,16 @@ As a learning process, there are some process are using the code directly from t
 
 ## The process of this project
 1.Data collection:
-  * Using Tweepy to get the data from tweeter
+  * Using Tweepy to get the data from tweeter\
 2.Data cleaning:
   * Using Re, Pandas to clean the emoji, link, hyperlink of the tweeter 
   * Filter the re-tweeter. 
   * Using stopwords to clean out useless words.
-  * transfrom the sentence to the words tokens.
+  * transfrom the sentence to the words tokens.\
 3.Data Visulization:
   * [Word Cloud](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/2020_Election_Data/Biden_Wordcloud.PNG)
   * graph to show the female, male.
-  * graph to show the verified users or unverified users.
+  * graph to show the verified users or unverified users.\
 4.Data analysis(Current doing):
   * Sentiment analysis
   * prediction
