@@ -6,4 +6,8 @@ I have very high interest on Data Science, Machine Learning, Data mining and Art
 
 This is the location that I store all my projects. There are two sections, the first one is related to the Data Science projects, the second one is related to the software applications that I have bulit.  Some of the projects are the class work which will under the folder name by the course number. 
 
+My Resume is [here](https://github.com/Brandon0916/ResumeFolder/blob/main/Zimeng%20Ming(Resume)%20.pdf), please feel free to contact me! 
+
+Have a nice day! :)
+
 All the code has the copyright to Zimeng Ming
