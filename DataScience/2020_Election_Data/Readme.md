@@ -7,8 +7,43 @@ The purpose of the project are using the data scrapt from Tweeter to apply some 
 The dataset are driectly scrapt from tweeter with the tweeter developer account. The data will pre-cleaned with serveral ways and the cleaned data will only contains the words.
 
 The python notebook will get the brief instruction of the process that used in the analysis and the use of various methods.
-
+Twe
 There are total of 4 parts of the data will be extracted from the tweeter, The data that related to the general topics of the election and the topics related to the specific candiantes. The topics "#Biden" and "Trump" are slected to use for general topics. However, although this study are very limited becuase only use one topic for each candiantes but it do conatins large number of the data for each hastages.
 This analysis are based on the data that the people post on the tweeter. The project are only used for research.
 
 The Main Python Notebook script is [here](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/2020_Election_Data/2020%20Elecion%20Data%20Analysis.ipynb)
+
+The project are using the reference of process: [Data-Science-Community](https://github.com/Data-Science-Community-SRM/Forecasting-US-Elections)
+
+As a learning process, there are some process are using the code directly from the reference course above. Most of the method are trying to using another way or using a more efficient way to do.
+
+## The modules used in this project
+* Tweepy
+* Pandas
+* numpy
+* Matplotlib
+* datetime
+* re
+* collections
+* wordcloud
+* nltk
+
+## The process of this project
+1.Data collection:
+  * Using Tweepy to get the data from tweeter
+2.Data cleaning:
+  * Using Re, Pandas to clean the emoji, link, hyperlink of the tweeter 
+  * Filter the re-tweeter. 
+  * Using stopwords to clean out useless words.
+  * transfrom the sentence to the words tokens.
+3.Data Visulization:
+  * [Word Cloud](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/2020_Election_Data/Biden_Wordcloud.PNG)
+  * graph to show the female, male.
+  * graph to show the verified users or unverified users.
+4.Data analysis(Current doing):
+  * Sentiment analysis
+  * prediction
+
+
+### Problems currently meet:
+1. When geting the data, the tweepy could not get the data correctly. Need more efficient algorithm or tools to gain the data. Also, sometime the data overwrite, the project could not continued properly.
