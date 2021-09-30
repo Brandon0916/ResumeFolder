@@ -11,7 +11,7 @@ The main language I used is Python with the request and beautifulsoup module. Th
   a). Test the request and beautifulsoup module are successful link the website
   b). Download the dataset from CDC website. The download dataset are named: "1.csv". (The name are using for test currently) 
 
-2. Using the Tableau to display the data on the map and visulization the data distribution. The map are using from [Health Authority Boundaries](https://catalogue.data.gov.bc.ca/dataset/health-authority-boundaries) under [Open Government Licence - British Columbia] (https://www2.gov.bc.ca/gov/content/data/open-data/open-government-licence-bc). 
+2. Using the Tableau to display the data on the map and visulization the data distribution. The map are using from [Health Authority Boundaries](https://catalogue.data.gov.bc.ca/dataset/health-authority-boundaries) under [Open Government Licence - British Columbia](https://www2.gov.bc.ca/gov/content/data/open-data/open-government-licence-bc). 
 
 3. Using the python to analysis the data (Current Working) 
 4. Using D3 to build to visulization dashboard for the data. (Future working, estimated complete on December)
@@ -25,7 +25,7 @@ The python notebook script are [here](https://github.com/Brandon0916/ResumeFolde
 This is a project that create by Tableau, some analysis are create. The dashboard are public on [Tableau Public Dashboard](https://public.tableau.com/views/Covid-19_16330301841440/StoryofCovid19?:language=en-US&publish=yes&:display_count=n&:origin=viz_share_link). The Tableau worksite is [here](COVID19_Data/Covid-19.twb). You can download the Tableau file for more details. The Tableau is using verison 2020.4 with the student license.
 
 The current dashboard update on **Sept 29th,2021**. 
-[![](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/Covid/Dashbord.png)
+![](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/Covid/Dashbord.png)
 
 
 #### Analysis
