@@ -28,14 +28,14 @@ My [Tableau publishes](https://public.tableau.com/app/profile/zimeng.ming) has m
          The project is using the Covid-19 cases data from CDC of British Columbia, Visulization the cases distribution and analysis the data with Tableau. \
          Toolkits Using: Python, BeautifulSoup, request, Tableau\
          [notebook](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/Covid/.ipynb_checkpoints/Scraping%20the%20COVID-19%20Data%20from%20Official%20Website-checkpoint.ipynb) \
-         [Tableau Dashboard](https://public.tableau.com/app/profile/zimeng.ming/viz/Covid-19_16330301841440/StoryofCovid19)\
+         [Tableau Dashboard](https://public.tableau.com/app/profile/zimeng.ming/viz/Covid-19_16330301841440/StoryofCovid19)
    *  [SQL Projects](https://github.com/Brandon0916/ResumeFolder/tree/main/DataScience/CSC_370_SQL_courses) : \
          Here is my SQL practices with course wroks.
    *  MapRecude and Spark
           [Movie Rating(data manage)](https://colab.research.google.com/drive/1qEdlpu0Es_z8VK7KDhyoa4tu2YlQV2u4?usp=sharing)\ 
           [Movie Rating(data Processing)](https://drive.google.com/file/d/1lm-bAJuQPZKul5IEwRQc3sg2sf2p8o5N/view?usp=sharing)
    *  [Artificial Intelligence](https://github.com/Brandon0916/ResumeFolder/tree/main/DataScience/CSC_421_Aritificial_Intelligence) 
-   *  [Some R code works](https://github.com/Brandon0916/ResumeFolder/tree/main/DataScience/Statistic_Courses) \
+   *  [Some R code works](https://github.com/Brandon0916/ResumeFolder/tree/main/DataScience/Statistic_Courses) 
 3. Software Porjects
    * [PONGBALL](https://github.com/Brandon0916/ResumeFolder/tree/main/SoftwareProjects/PONGBALL) 
         An pygame small application.
@@ -47,7 +47,7 @@ My [Tableau publishes](https://public.tableau.com/app/profile/zimeng.ming) has m
 
 I am currently working with my flutter projects but in the meantime, I am self-study the data science course and do some interesting project either. 
 
-I am also avaliable for a full time job starting on October. Please contact me via [email](Brandonming0916@gmail.com)
+I am also avaliable for a full time job starting on October. Please contact me via email or phone in my [resume](https://github.com/Brandon0916/ResumeFolder/blob/main/Zimeng%20Ming(Resume)%20.pdf)
 
 
 
