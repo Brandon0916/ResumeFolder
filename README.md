@@ -8,6 +8,12 @@ This is the location that I store all my projects. There are two sections, the f
 
 My Resume is [here](https://github.com/Brandon0916/ResumeFolder/blob/main/Zimeng%20Ming(Resume)%20.pdf), please feel free to contact me! 
 
-Have a nice day! :)
+Alt-My Workshops:
+----------------
+
+1. Data Science projects: 
+  ..*  [Analysis of Unemployment Rate of Canada](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474Final_Report.pdf)
+  
+        
 
 All the code has the copyright to Zimeng Ming
