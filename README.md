@@ -8,12 +8,19 @@ This is the location that I store all my projects. There are two sections, the f
 
 My Resume is [here](https://github.com/Brandon0916/ResumeFolder/blob/main/Zimeng%20Ming(Resume)%20.pdf), please feel free to contact me! 
 
-Alt-My Workshops:
+## My Workshops:
 ----------------
 
 1. Data Science projects: 
-  *  [Analysis of Unemployment Rate of Canada](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474Final_Report.pdf)
+  *  [Analysis of Unemployment Rate of Canada](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474Final_Report.pdf) :
+      The project is aiming to analysis the unemployment data from Statistic Canada and try to build the model for the unemployment rate fo Canada. 
+      Toolkits Using:  Python, Pandas, Sklearn with linear model and cluster. 
+      The [notebook](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474_project_code.ipynb) 
+  *  [
   
         
 
+
+
+----------
 All the code has the copyright to Zimeng Ming
