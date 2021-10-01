@@ -12,7 +12,7 @@ Alt-My Workshops:
 ----------------
 
 1. Data Science projects: 
-  ..*  [Analysis of Unemployment Rate of Canada](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474Final_Report.pdf)
+  *  [Analysis of Unemployment Rate of Canada](https://github.com/Brandon0916/ResumeFolder/blob/main/DataScience/SENG_474_Data_Mining/Predict_Unemployment_rate_of_Canada/474Final_Report.pdf)
   
         
 
