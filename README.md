@@ -1,6 +1,6 @@
 # ResumeFolder
 
-Hi, I am Zimeng Ming(Brandon), a fourth year university student who study in combined Computer Science and Statistic in University of Victoria.
+Hi, I am Zimeng Ming(Brandon), a data science student who just graduated in combined Computer Science and Statistic in University of Victoria. You also can check me out on my [personal website!](https://brandon0916.github.io/brandonming.github.io/)
 
 I have very high interest on Data Science, Machine Learning, Data mining and Artificial Intelligence especial interact with different types of bussiness. I have attached my resume on the main location of this repository. 
 
